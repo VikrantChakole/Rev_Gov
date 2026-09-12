@@ -20,6 +20,8 @@ def test_tesseract_live_ocr(tmp_path):
 
     # 2. Run OCR service
     ocr_svc = OCRService()
+    if not ocr_svc.is_tesseract_available:
+        pytest.skip("Tesseract OCR binary not installed on local host environment")
 
     # Note: Disable GEMINI_API_KEY temporarily if set, to test Tesseract fallback directly
     from app.core.config import settings

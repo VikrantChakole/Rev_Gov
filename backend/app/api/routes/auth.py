@@ -172,6 +172,30 @@ def require_officer(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def require_reviewer(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("ADMIN", "REVIEWER"):
+        raise HTTPException(status_code=403, detail="Reviewer role required")
+    return current_user
+
+
+def require_approver(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("ADMIN", "APPROVER"):
+        raise HTTPException(status_code=403, detail="Approver role required")
+    return current_user
+
+
+def require_auditor(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("ADMIN", "AUDITOR", "REVIEWER", "OFFICER"):
+        raise HTTPException(status_code=403, detail="Auditor role required")
+    return current_user
+
+
+def require_operator(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("ADMIN", "OPERATOR"):
+        raise HTTPException(status_code=403, detail="Assisted Operator role required")
+    return current_user
+
+
 # ── Endpoints ──
 
 @router.post("/login", response_model=TokenResponse)
@@ -225,13 +249,13 @@ def register_citizen(
     from app.data_layer.repositories.citizen_repo import CitizenRepository
     from app.data_layer.repositories.channel_identity_repo import ChannelIdentityRepository
 
-    # 1. Validate Full Name (First, Middle, Last Name required)
+    # 1. Validate Full Name (At least 2 name parts required: First Name and Last Name)
     name_str = (body.name or "").strip()
     name_parts = [p for p in name_str.split() if p]
-    if len(name_parts) < 3:
+    if len(name_parts) < 2:
         raise HTTPException(
             status_code=400,
-            detail="Please enter your complete Full Name including First Name, Middle Name, and Last Name (e.g. Rajesh Kumar Sharma).",
+            detail="Please enter your complete Full Name including First Name and Last Name (e.g. Rajesh Sharma).",
         )
 
     # 2. Validate Password (at least 10 characters)
@@ -246,11 +270,13 @@ def register_citizen(
     if not raw_identifier:
         raise HTTPException(status_code=400, detail="Mobile number (10 digits) or Email is required.")
 
+    email_val = body.email.strip().lower() if body.email else None
+    phone_val = body.phone.strip() if body.phone else None
+
     if "@" in raw_identifier:
         if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", raw_identifier):
             raise HTTPException(status_code=400, detail="Please enter a valid email address (e.g. citizen@example.com).")
         email_val = raw_identifier.lower()
-        phone_val = None
         identifier = email_val
     else:
         cleaned_phone = re.sub(r"\D", "", raw_identifier)
@@ -267,7 +293,6 @@ def register_citizen(
 
         phone_val = f"+91{cleaned_phone}"
         identifier = phone_val
-        email_val = None
 
     # Check if user/citizen already exists
     existing = db.query(User).filter(

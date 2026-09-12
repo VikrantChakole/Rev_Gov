@@ -224,6 +224,10 @@ try:
 except ImportError:
     pass  # Created in Phase 8
 
+# ── Presentation Demo Router ──
+from app.api.routes import demo
+app.include_router(demo.router, prefix=PREFIX)
+
 # ── Static Files Mount ──
 app.mount("/data", StaticFiles(directory="data"), name="data")
 

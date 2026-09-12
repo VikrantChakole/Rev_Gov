@@ -147,7 +147,27 @@ def get_application_status(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Check status of a specific application by application number or tracking ID."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication token required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = auth_header.replace("Bearer ", "").strip()
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token_ref = payload.get("citizen_ref")
+    role = payload.get("role")
+
     repo = ApplicationRepository(db)
     app = repo.get_by_number(application_number) or repo.get_by_id(application_number)
     if not app:
@@ -156,6 +176,9 @@ def get_application_status(
 
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
+
+    if token_ref and token_ref != app.citizen_ref and role not in ("ADMIN", "OFFICER", "REVIEWER", "APPROVER", "AUDITOR", "OPERATOR"):
+        raise HTTPException(status_code=403, detail="Access forbidden: citizen ID mismatch")
 
     cert = None
     if app.certificate:

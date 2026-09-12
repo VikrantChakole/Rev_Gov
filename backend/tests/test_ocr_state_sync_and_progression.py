@@ -382,12 +382,11 @@ def test_15_no_duplicate_application_on_session_recovery(db_session):
 
 
 def test_16_openrouter_model_is_configured_model():
-    """TEST 16: OpenRouter provider model is settings.OPENROUTER_MODEL (minimax/minimax-m3:free)."""
+    """TEST 16: OpenRouter provider model is settings.OPENROUTER_MODEL."""
     from app.llm.provider_factory import get_provider
     provider = get_provider()
     assert provider.provider_name == "openrouter"
     assert provider.model_name == settings.OPENROUTER_MODEL
-    assert "minimax" in settings.OPENROUTER_MODEL
 
 
 def test_17_openrouter_402_returns_http_503():

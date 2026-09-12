@@ -190,3 +190,52 @@ def get_service_health(db: Session = Depends(get_db)):
             "encryption": {"status": "HEALTHY", "algorithm": "AES-256-GCM"},
         },
     }
+
+
+@router.get("/officer")
+def get_officer_dashboard(db: Session = Depends(get_db)):
+    """Fetch submitted applications queue for officer review."""
+    from app.models.db_models import Application
+    from app.services.risk_scoring_service import RiskScoringService
+
+    apps = db.query(Application).filter(
+        Application.status.in_(["SUBMITTED", "SUBMITTED_FOR_VERIFICATION", "UNDER_REVIEW", "FINAL_REVIEW", "OCR_VALIDATION"])
+    ).order_by(Application.created_at.desc()).all()
+
+    app_repo = ApplicationRepository(db)
+    submitted_list = []
+    for a in apps:
+        fields = app_repo.get_fields(a.id, decrypt=True)
+        doc_list = []
+        for d in a.documents:
+            doc_list.append({
+                "doc_type": d.doc_type,
+                "confidence_score": d.confidence_score,
+                "verification_status": d.verification_status,
+                "extracted_fields": d.extracted_fields or d.normalized_fields or {}
+            })
+        
+        risk_eval = RiskScoringService.evaluate_application(app_data=fields, documents=doc_list, anomaly_score=a.anomaly_score or 0.0)
+
+        submitted_list.append({
+            "id": a.id,
+            "application_number": a.application_number,
+            "citizen_name": fields.get("applicant_name") or (a.citizen.name if a.citizen else "Citizen Applicant"),
+            "service_name": a.service.name_en if a.service else a.service_id,
+            "status": a.status,
+            "risk_score": risk_eval.score,
+            "risk_category": risk_eval.category,
+            "risk_signals": [
+                {"code": s.code, "name": s.name, "weight": s.weight, "evidence": s.evidence}
+                for s in risk_eval.signals
+            ],
+            "sla_days": a.service.sla_days if a.service else 7,
+            "days_pending": (datetime.datetime.utcnow() - a.created_at).days if a.created_at else 1,
+            "declared_fields": fields,
+        })
+
+    return {
+        "status": "ok",
+        "count": len(submitted_list),
+        "submitted_applications": submitted_list,
+    }

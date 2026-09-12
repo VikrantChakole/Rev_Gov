@@ -40,9 +40,17 @@ import EscalationPanel   from './pages/EscalationPanel/EscalationPanel'
 
 import CertificateVerifier from './pages/CertificateVerifier/CertificateVerifier'
 
+// ── NEW HACKATHON DEMO ROUTES ──
+import HackathonPitchBar from './components/HackathonPitchBar/HackathonPitchBar'
+import OmnichannelDemo from './pages/OmnichannelDemo/OmnichannelDemo'
+import MultilingualEval from './pages/MultilingualEval/MultilingualEval'
+import OfficerDashboard from './pages/OfficerDashboard/OfficerDashboard'
+import ReviewerApproverDashboard from './pages/ReviewerApproverDashboard/ReviewerApproverDashboard'
+
 export default function App() {
   return (
     <BrowserRouter>
+      <HackathonPitchBar />
       <Routes>
 
         {/* ══════════════════════════════════════════════════
@@ -55,6 +63,15 @@ export default function App() {
         </Route>
         
         <Route path="/verify-certificate/:certNumber" element={<CertificateVerifier />} />
+
+        {/* ══════════════════════════════════════════════════
+            HACKATHON DEMO & PRESENTATION ROUTES
+            ══════════════════════════════════════════════════ */}
+        <Route path="/demo"                element={<OmnichannelDemo />} />
+        <Route path="/multilingual-eval"  element={<MultilingualEval />} />
+        <Route path="/officer-dashboard"   element={<OfficerDashboard />} />
+        <Route path="/reviewer-dashboard"  element={<ReviewerApproverDashboard />} />
+        <Route path="/approver-dashboard"  element={<ReviewerApproverDashboard />} />
 
         {/* ══════════════════════════════════════════════════
             AUTH PAGE — standalone, no layout wrapper
