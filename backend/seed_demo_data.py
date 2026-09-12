@@ -145,15 +145,16 @@ def seed():
             ))
 
             # Payment record
-            db.add(Payment(
-                application_id=app.id,
-                transaction_id="TXN-REV-2026-9901",
-                amount=25.0,
-                currency="INR",
-                method="UPI",
-                status="SUCCESS",
-                gateway="SIMULATED_TREASURY_GATEWAY"
-            ))
+            if not db.query(Payment).filter(Payment.transaction_id == "TXN-REV-2026-9901").first():
+                db.add(Payment(
+                    application_id=app.id,
+                    transaction_id="TXN-REV-2026-9901",
+                    amount=25.0,
+                    currency="INR",
+                    method="UPI",
+                    status="SUCCESS",
+                    gateway="SIMULATED_TREASURY_GATEWAY"
+                ))
 
             # Audit Trail
             db.add(AuditLog(

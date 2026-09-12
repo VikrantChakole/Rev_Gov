@@ -106,7 +106,7 @@ class SpeechAdapterService:
         Synthesize Malayalam TTS speech audio output.
         Returns audio stream metadata and web playback URL.
         """
-        filename = f"tts_{abs(hash(text))[:8]}.mp3"
+        filename = f"tts_{str(abs(hash(text)))[:8]}.mp3"
         audio_path = os.path.join("data", "audio", filename)
         
         os.makedirs(os.path.dirname(audio_path), exist_ok=True)
