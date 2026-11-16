@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft,
@@ -17,31 +18,49 @@ import {
   FileSearch,
   Award,
   AlertOctagon,
-  Scale,
   RefreshCw,
   Edit,
+  Eye,
 } from 'lucide-react'
 import { applicationsApi } from '../../api/applications'
 import { documentsApi } from '../../api/documents'
 import { STATUS_CONFIG } from '../../utils/constants'
 import styles from './OfficerReview.module.css'
 
-const formatServiceName = (name, id = '') => {
+const formatServiceName = (name, id = '', t) => {
+  if (id && t) {
+    const key = `services.${id}.name`
+    const translated = t(key, '')
+    if (translated && translated !== key) return translated
+  }
   if (!name) return (id || '').replace(/_/g, ' ')
   if (typeof name === 'object') return name.en || Object.values(name)[0] || id
   return String(name).replace(/_/g, ' ')
 }
 
 export default function OfficerReview() {
+  const { t, i18n } = useTranslation()
   const { appNumber } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
+  const queuePath = location.pathname.startsWith('/district') ? '/district/applications' : '/admin/applications'
 
   const [decisionModal, setDecisionModal] = useState(null) // 'APPROVE' | 'REJECT' | 'REQUEST_CLARIFICATION'
   const [reasonText, setReasonText] = useState('')
   const [notesText, setNotesText] = useState('')
   const [expandedDocOcr, setExpandedDocOcr] = useState({})
   const [editingOcrState, setEditingOcrState] = useState(null)
+
+  const currentLang = i18n.language || 'en'
+  const localeMap = {
+    hi: 'hi-IN', mr: 'mr-IN', bn: 'bn-IN', te: 'te-IN', ta: 'ta-IN',
+    gu: 'gu-IN', kn: 'kn-IN', ml: 'ml-IN', pa: 'pa-IN', en: 'en-IN'
+  }
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '—'
+    return new Date(dateStr).toLocaleString(localeMap[currentLang] || 'en-IN')
+  }
 
   const handleSaveOcrEdit = async (docId, fieldName, newValue) => {
     const toastId = toast.loading(`Updating OCR field ${fieldName}...`)
@@ -52,17 +71,6 @@ export default function OfficerReview() {
       refetch()
     } catch (err) {
       toast.error(err.message || 'Failed to update OCR field', { id: toastId })
-    }
-  }
-
-  const handleVerifyDoc = async (docId, status) => {
-    const toastId = toast.loading(`Updating document status to ${status}...`)
-    try {
-      await documentsApi.verifyDocument(appNumber, docId, status)
-      toast.success(`Document marked as ${status}!`, { id: toastId })
-      refetch()
-    } catch (err) {
-      toast.error(err.message || 'Failed to update document status', { id: toastId })
     }
   }
 
@@ -98,7 +106,7 @@ export default function OfficerReview() {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.spinner} />
-        <p>Loading authoritative government review records...</p>
+        <p>{t('clerk.loadingApplications', 'Loading authoritative government review records...')}</p>
       </div>
     )
   }
@@ -107,10 +115,10 @@ export default function OfficerReview() {
     return (
       <div className={styles.errorContainer}>
         <AlertTriangle size={48} className={styles.errorIcon} />
-        <h2>Application Not Found</h2>
-        <p>{error?.message || `Could not find application '${appNumber}'.`}</p>
-        <Link to="/admin/applications" className={styles.backBtn}>
-          <ArrowLeft size={16} /> Back to Applications Queue
+        <h2>{t('officer.appNotFound', 'Application Not Found')}</h2>
+        <p>{error?.message || t('officer.appNotFound', `Could not find application '${appNumber}'.`)}</p>
+        <Link to={queuePath} className={styles.backBtn}>
+          <ArrowLeft size={16} /> {t('officer.backToQueue', 'Back to Applications Queue')}
         </Link>
       </div>
     )
@@ -123,9 +131,7 @@ export default function OfficerReview() {
   const rawSlots = data.raw_slots || {}
   const documents = data.documents || []
   const readiness = data.readiness || {}
-  const matching = data.matching || {}
   const fraud = data.fraud || {}
-  const auditLogs = data.audit || []
   const availableActions = data.available_actions || []
 
   const statusCfg = STATUS_CONFIG[app.status] || {
@@ -159,12 +165,12 @@ export default function OfficerReview() {
     <div className={styles.container}>
       {/* ── Top Nav & Header ── */}
       <div className={styles.topBar}>
-        <button className={styles.backLink} onClick={() => navigate('/admin/applications')}>
-          <ArrowLeft size={16} /> Back to Queue
+        <button className={styles.backLink} onClick={() => navigate(queuePath)}>
+          <ArrowLeft size={16} /> {t('officer.backToQueue', 'Back to Queue')}
         </button>
         <div className={styles.topActions}>
-          <button className={styles.refreshBtn} onClick={() => refetch()} title="Sync record">
-            <RefreshCw size={14} /> Refresh
+          <button className={styles.refreshBtn} onClick={() => refetch()} title={t('common.refresh', 'Refresh')}>
+            <RefreshCw size={14} /> {t('common.refresh', 'Refresh')}
           </button>
         </div>
       </div>
@@ -191,10 +197,10 @@ export default function OfficerReview() {
               Risk: {fraud.risk_level} (Anomaly: {(fraud.anomaly_score * 100).toFixed(0)}%)
             </span>
           </div>
-          <h1 className={styles.serviceHeading}>{formatServiceName(service.name || app.service_name, app.service_id)}</h1>
+          <h1 className={styles.serviceHeading}>{formatServiceName(service.name || app.service_name, app.service_id, t)}</h1>
           <p className={styles.citizenSummary}>
-            Applicant: <strong>{citizen.name || citizen.citizen_ref}</strong> ({citizen.citizen_ref}) · Submitted:{' '}
-            {app.submitted_at ? new Date(app.submitted_at).toLocaleString() : 'Pending Submission'}
+            {t('officer.applicantLabel', 'Applicant:')} <strong>{citizen.name || citizen.citizen_ref}</strong> ({citizen.citizen_ref}) · {t('officer.submittedLabel', 'Submitted:')}{' '}
+            {app.submitted_at ? formatDateTime(app.submitted_at) : 'Pending Submission'}
           </p>
         </div>
       </div>
@@ -205,43 +211,43 @@ export default function OfficerReview() {
       <div className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <FileText size={18} className={styles.sectionIcon} />
-          <h2 className={styles.sectionTitle}>Section 1 — Application Overview</h2>
+          <h2 className={styles.sectionTitle}>{t('officer.section1Overview', 'Section 1 — Application Overview')}</h2>
         </div>
         <div className={styles.grid4}>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Application Number</span>
+            <span className={styles.fieldLabel}>{t('officer.applicationNumber', 'Application Number')}</span>
             <span className={styles.fieldValue}>{app.application_number}</span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Tracking Identifier</span>
+            <span className={styles.fieldLabel}>{t('officer.trackingIdentifier', 'Tracking Identifier')}</span>
             <span className={styles.fieldValue}>{app.tracking_id || '—'}</span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Service Department</span>
+            <span className={styles.fieldLabel}>{t('officer.serviceDepartment', 'Service Department')}</span>
             <span className={styles.fieldValue}>{service.department || 'Revenue'}</span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>SLA Compliance</span>
+            <span className={styles.fieldLabel}>{t('officer.slaCompliance', 'SLA Compliance')}</span>
             <span className={styles.fieldValue}>{service.sla_days || 7} working days</span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Submission Channel</span>
+            <span className={styles.fieldLabel}>{t('officer.submissionChannel', 'Submission Channel')}</span>
             <span className={styles.fieldValue}>{app.channel_origin || 'WEB'}</span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Language Preference</span>
+            <span className={styles.fieldLabel}>{t('officer.languagePreference', 'Language Preference')}</span>
             <span className={styles.fieldValue}>{(app.language || 'en').toUpperCase()}</span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Payment Status</span>
+            <span className={styles.fieldLabel}>{t('officer.paymentStatus', 'Payment Status')}</span>
             <span className={styles.fieldValue}>
               {app.payment_status} (₹{service.fee_amount || 50})
             </span>
           </div>
           <div className={styles.infoField}>
-            <span className={styles.fieldLabel}>Created Timestamp</span>
+            <span className={styles.fieldLabel}>{t('officer.createdTimestamp', 'Created Timestamp')}</span>
             <span className={styles.fieldValue}>
-              {app.created_at ? new Date(app.created_at).toLocaleString() : '—'}
+              {formatDateTime(app.created_at)}
             </span>
           </div>
         </div>
@@ -253,24 +259,24 @@ export default function OfficerReview() {
       <div className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <User size={18} className={styles.sectionIcon} />
-          <h2 className={styles.sectionTitle}>Section 2 — Personal & Application Data</h2>
+          <h2 className={styles.sectionTitle}>{t('officer.section2PersonalData', 'Section 2 — Personal & Application Data')}</h2>
         </div>
         {Object.keys(appData).length === 0 && Object.keys(rawSlots).length === 0 ? (
-          <p className={styles.emptyNote}>No declared slot fields recorded.</p>
+          <p className={styles.emptyNote}>{t('officer.noDeclaredSlots', 'No declared slot fields recorded.')}</p>
         ) : (
           <div className={styles.tableWrapper}>
             <table className={styles.dataTable}>
               <thead>
                 <tr>
-                  <th>Field Name</th>
-                  <th>Declared Value</th>
-                  <th>DataGuard Classification</th>
+                  <th>{t('officer.fieldName', 'Field Name')}</th>
+                  <th>{t('officer.declaredValue', 'Declared Value')}</th>
+                  <th>{t('officer.dataGuardClass', 'DataGuard Classification')}</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(appData).map(([key, item]) => (
                   <tr key={key}>
-                    <td className={styles.fieldNameCell}>{key.replace(/_/g, ' ')}</td>
+                    <td className={styles.fieldNameCell}>{t(`formFields.${key}.label`, key.replace(/_/g, ' '))}</td>
                     <td className={styles.fieldValCell}>
                       <strong>{String(item.value || '—')}</strong>
                     </td>
@@ -291,79 +297,101 @@ export default function OfficerReview() {
       <div className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <FileSearch size={18} className={styles.sectionIcon} />
-          <h2 className={styles.sectionTitle}>Section 3 — Documents & OCR Verification</h2>
+          <h2 className={styles.sectionTitle}>{t('officer.section3Documents', 'Section 3 — Documents & Visual Inspection')}</h2>
         </div>
         {documents.length === 0 ? (
-          <p className={styles.emptyNote}>No documents uploaded for this application.</p>
+          <p className={styles.emptyNote}>{t('clerk.noDocumentsAttached', 'No documents uploaded for this application.')}</p>
         ) : (
           <div className={styles.docsList}>
-            {documents.map((doc) => (
-              <div key={doc.id} className={styles.docCard}>
-                <div className={styles.docCardHeader}>
-                  <div>
-                    <h3 className={styles.docTypeTitle}>{doc.doc_type}</h3>
-                    <span className={styles.docFilename}>{doc.filename || 'Uploaded File'}</span>
-                  </div>
-                  <div className={styles.docBadges}>
-                    <span className={styles.docMatchScore}>
-                      Match: {Math.round(doc.match_score || 100)}%
-                    </span>
-                    <span className={styles.docConfidence}>
-                      OCR Conf: {Math.round((doc.confidence_score || 0.9) * 100)}%
-                    </span>
-                    <span className={styles.statusPill} style={{
-                      backgroundColor: doc.verification_status === 'VERIFIED' ? '#dcfce7' : doc.verification_status === 'REJECTED' ? '#fee2e2' : '#f1f5f9',
-                      color: doc.verification_status === 'VERIFIED' ? '#15803d' : doc.verification_status === 'REJECTED' ? '#b91c1c' : '#475569'
-                    }}>
-                      {doc.verification_status || 'PENDING'}
-                    </span>
-                    <div style={{ display: 'inline-flex', gap: '0.375rem', alignItems: 'center', marginLeft: '0.5rem' }}>
-                      <button
-                        onClick={() => handleVerifyDoc(doc.id, 'VERIFIED')}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          borderRadius: 4,
-                          border: 'none',
-                          cursor: 'pointer',
-                          background: doc.verification_status === 'VERIFIED' ? '#16a34a' : '#00355f',
-                          color: '#fff',
-                        }}
-                        title="Approve & Mark Document Verified"
-                      >
-                        ✓ Verify
-                      </button>
-                      <button
-                        onClick={() => handleVerifyDoc(doc.id, 'REJECTED')}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          borderRadius: 4,
-                          border: '1px solid #cbd5e1',
-                          cursor: 'pointer',
-                          background: doc.verification_status === 'REJECTED' ? '#dc2626' : '#fff',
-                          color: doc.verification_status === 'REJECTED' ? '#fff' : '#64748b',
-                        }}
-                        title="Mark Document Rejected"
-                      >
-                        ✕ Reject
-                      </button>
+            {documents.map((doc) => {
+              const docFileName = doc.filename || doc.file_name || ''
+              const docImageUrl = documentsApi.getDocumentImageUrl(appNumber || app.application_number || app.id, doc.id)
+              const isPdf = docFileName.toLowerCase().endsWith('.pdf') || (doc.file_ref && doc.file_ref.toLowerCase().endsWith('.pdf'))
+
+              return (
+                <div key={doc.id} className={styles.docCard}>
+                  <div className={styles.docCardHeader}>
+                    <div>
+                      <h3 className={styles.docTypeTitle}>{doc.doc_type}</h3>
+                      <span className={styles.docFilename}>{docFileName || 'Uploaded File'}</span>
+                    </div>
+                    <div className={styles.docBadges}>
+                      <span className={styles.docMatchScore}>
+                        Match: {Math.round(doc.match_score || 100)}%
+                      </span>
+                      <span className={styles.statusPill} style={{
+                        backgroundColor: doc.verification_status === 'VERIFIED' ? '#dcfce7' : doc.verification_status === 'REJECTED' ? '#fee2e2' : '#f1f5f9',
+                        color: doc.verification_status === 'VERIFIED' ? '#15803d' : doc.verification_status === 'REJECTED' ? '#b91c1c' : '#475569'
+                      }}>
+                        {doc.verification_status === 'VERIFIED'
+                          ? t('clerk.verifiedStatus', 'VERIFIED')
+                          : doc.verification_status === 'REJECTED'
+                          ? t('clerk.rejectedStatus', 'REJECTED')
+                          : doc.verification_status || t('clerk.pendingStatus', 'PENDING')}
+                      </span>
                     </div>
                   </div>
-                </div>
+
+                  {/* Document Visual Preview for District Officer */}
+                  <div className={styles.docPreviewSection}>
+                    <div className={styles.docPreviewHeader}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: '#334155' }}>
+                        <Eye size={15} color="#00355f" />
+                        <span>{t('officer.docVisualPreview', 'Document Visual Preview')}</span>
+                      </div>
+                      <a
+                        href={docImageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.openExternalLink}
+                        title="Open original document in new browser tab"
+                      >
+                        <ExternalLink size={13} />
+                        <span>{t('officer.openFullDoc', 'Open Full Document')}</span>
+                      </a>
+                    </div>
+
+                    <div className={styles.docPreviewBody}>
+                      {isPdf ? (
+                        <div className={styles.pdfViewerWrapper}>
+                          <object
+                            data={docImageUrl}
+                            type="application/pdf"
+                            className={styles.pdfObject}
+                          >
+                            <div className={styles.pdfFallback}>
+                              <p>{t('clerk.pdfPreviewLoaded', 'PDF preview could not be displayed directly in browser frame.')}</p>
+                              <a href={docImageUrl} target="_blank" rel="noreferrer" className={styles.openExternalLink}>
+                                <ExternalLink size={14} /> {t('clerk.openPdfFullWindow', 'Open PDF Document')}
+                              </a>
+                            </div>
+                          </object>
+                        </div>
+                      ) : (
+                        <div className={styles.imageViewerWrapper}>
+                          <img
+                            src={docImageUrl}
+                            alt={doc.doc_type || 'Uploaded document'}
+                            className={styles.docImage}
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                 {/* Normalized OCR Fields */}
                 <div className={styles.docFieldsSection}>
-                  <h4 className={styles.subHeading}>Normalized OCR Fields:</h4>
+                  <h4 className={styles.subHeading}>{t('officer.normalizedOcrFields', 'Normalized OCR Fields:')}</h4>
                   {doc.normalized_fields && Object.keys(doc.normalized_fields).length > 0 ? (
                     <div className={styles.ocrFieldsGrid}>
                       {Object.entries(doc.normalized_fields).map(([k, v]) => {
                         const isEditing = editingOcrState?.docId === doc.id && editingOcrState?.field === k
                         return (
                           <div key={k} className={styles.ocrFieldItem} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                            <span className={styles.ocrKey} style={{ fontWeight: 600 }}>{k.replace(/_/g, ' ')}:</span>
+                            <span className={styles.ocrKey} style={{ fontWeight: 600 }}>{t(`formFields.${k}.label`, k.replace(/_/g, ' '))}:</span>
                             {isEditing ? (
                               <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flex: 1 }}>
                                 <input
@@ -420,7 +448,7 @@ export default function OfficerReview() {
                       onClick={() => toggleDocOcr(doc.id)}
                     >
                       {expandedDocOcr[doc.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      <span>{expandedDocOcr[doc.id] ? 'Hide Raw OCR Text' : 'Inspect Raw OCR Text (Officer View)'}</span>
+                      <span>{expandedDocOcr[doc.id] ? t('officer.hideRawOcr', 'Hide Raw OCR Text') : t('officer.inspectRawOcr', 'Inspect Raw OCR Text (Officer View)')}</span>
                     </button>
                     {expandedDocOcr[doc.id] && (
                       <pre className={styles.rawOcrPre}>{doc.raw_ocr_text}</pre>
@@ -428,8 +456,9 @@ export default function OfficerReview() {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+            )
+          })}
+        </div>
         )}
       </div>
 
@@ -439,7 +468,7 @@ export default function OfficerReview() {
       <div className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <Award size={18} className={styles.sectionIcon} />
-          <h2 className={styles.sectionTitle}>Section 4 — Readiness Assessment (Backend Engine)</h2>
+          <h2 className={styles.sectionTitle}>{t('officer.section4Readiness', 'Section 4 — Readiness Assessment (Backend Engine)')}</h2>
         </div>
         <div className={styles.readinessOverview}>
           <div className={styles.readinessScoreBox}>
@@ -451,10 +480,10 @@ export default function OfficerReview() {
             <table className={styles.compTable}>
               <thead>
                 <tr>
-                  <th>Component</th>
-                  <th>Weight</th>
-                  <th>Achievement</th>
-                  <th>Score</th>
+                  <th>{t('officer.component', 'Component')}</th>
+                  <th>{t('officer.weight', 'Weight')}</th>
+                  <th>{t('officer.achievement', 'Achievement')}</th>
+                  <th>{t('officer.score', 'Score')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -475,63 +504,20 @@ export default function OfficerReview() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          SECTION 5 — DOCUMENT MATCHING
-          ══════════════════════════════════════════════════════════════ */}
-      <div className={styles.sectionCard}>
-        <div className={styles.sectionHeader}>
-          <Scale size={18} className={styles.sectionIcon} />
-          <h2 className={styles.sectionTitle}>Section 5 — Cross-Field Document Matching</h2>
-        </div>
-        <div className={styles.matchingContent}>
-          <div className={styles.overallMatchBadge}>
-            Overall Match Confidence: <strong>{Math.round(matching.overall_match_score || 100)}%</strong>
-          </div>
-          <div className={styles.matchFieldsLists}>
-            <div>
-              <h4 className={styles.matchSubhead} style={{ color: '#16a34a' }}>
-                ✓ Matched Fields:
-              </h4>
-              <ul className={styles.fieldList}>
-                {(matching.matched_fields || ['applicant_name', 'dob', 'address']).map((f) => (
-                  <li key={f}>{String(f).replace(/_/g, ' ')}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className={styles.matchSubhead} style={{ color: '#dc2626' }}>
-                ⚠ Mismatched Fields:
-              </h4>
-              {(matching.mismatched_fields || []).length === 0 ? (
-                <span className={styles.dimText}>No field mismatches detected.</span>
-              ) : (
-                <ul className={styles.fieldList}>
-                  {matching.mismatched_fields.map((f) => (
-                    <li key={f} style={{ color: '#dc2626' }}>
-                      {String(f).replace(/_/g, ' ')}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════
-          SECTION 6 — FRAUD & RULES REVIEW
+          SECTION 5 — FRAUD & RULES REVIEW
           ══════════════════════════════════════════════════════════════ */}
       <div className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <Shield size={18} className={styles.sectionIcon} />
-          <h2 className={styles.sectionTitle}>Section 6 — Fraud, Rules & Security Assessment</h2>
+          <h2 className={styles.sectionTitle}>{t('officer.section5Fraud', 'Section 5 — Fraud, Rules & Security Assessment')}</h2>
         </div>
         <div className={styles.fraudGrid}>
           <div className={styles.fraudItem}>
-            <span className={styles.fraudLabel}>Fraud / Anomaly Score</span>
+            <span className={styles.fraudLabel}>{t('officer.fraudScore', 'Fraud / Anomaly Score')}</span>
             <span className={styles.fraudVal}>{(fraud.anomaly_score * 100).toFixed(1)}%</span>
           </div>
           <div className={styles.fraudItem}>
-            <span className={styles.fraudLabel}>Risk Classification</span>
+            <span className={styles.fraudLabel}>{t('officer.riskClassification', 'Risk Classification')}</span>
             <span
               className={styles.riskBadge}
               style={{
@@ -543,15 +529,15 @@ export default function OfficerReview() {
             </span>
           </div>
           <div className={styles.fraudItem}>
-            <span className={styles.fraudLabel}>Eligibility Status</span>
+            <span className={styles.fraudLabel}>{t('officer.eligibilityStatus', 'Eligibility Status')}</span>
             <span className={styles.fraudVal} style={{ color: fraud.eligibility_passed ? '#16a34a' : '#dc2626' }}>
               {fraud.eligibility_passed ? 'Eligible' : 'Eligibility Issues'}
             </span>
           </div>
           <div className={styles.fraudItem}>
-            <span className={styles.fraudLabel}>DataGuard Status</span>
+            <span className={styles.fraudLabel}>{t('officer.dataGuardStatus', 'DataGuard Status')}</span>
             <span className={styles.fraudVal} style={{ color: '#16a34a' }}>
-              PII Enforced / Protected
+              {t('officer.piiEnforced', 'PII Enforced / Protected')}
             </span>
           </div>
         </div>
@@ -562,9 +548,9 @@ export default function OfficerReview() {
           ══════════════════════════════════════════════════════════════ */}
       <div className={styles.decisionPanelCard}>
         <div className={styles.decisionHeader}>
-          <h2 className={styles.decisionTitle}>Government Officer Decision Panel</h2>
+          <h2 className={styles.decisionTitle}>{t('officer.decisionPanelTitle', 'Government Officer Decision Panel')}</h2>
           <span className={styles.decisionStateText}>
-            Current State: <strong>{app.status}</strong>
+            {t('officer.currentState', 'Current State:')} <strong>{app.status}</strong>
           </span>
         </div>
 
@@ -590,7 +576,7 @@ export default function OfficerReview() {
               onClick={() => setDecisionModal('APPROVE')}
               disabled={decisionMutation.isPending}
             >
-              <CheckCircle size={18} /> Approve Application
+              <CheckCircle size={18} /> {t('officer.approveApplication', 'Approve Application')}
             </button>
 
             <button
@@ -598,7 +584,7 @@ export default function OfficerReview() {
               onClick={() => setDecisionModal('REQUEST_CLARIFICATION')}
               disabled={decisionMutation.isPending}
             >
-              <AlertOctagon size={18} /> Request Clarification
+              <AlertOctagon size={18} /> {t('officer.requestClarification', 'Request Clarification')}
             </button>
 
             <button
@@ -606,7 +592,7 @@ export default function OfficerReview() {
               onClick={() => setDecisionModal('REJECT')}
               disabled={decisionMutation.isPending}
             >
-              <XCircle size={18} /> Reject Application
+              <XCircle size={18} /> {t('officer.rejectApplication', 'Reject Application')}
             </button>
           </div>
         )}
@@ -617,9 +603,9 @@ export default function OfficerReview() {
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
             <h3 className={styles.modalTitle}>
-              {decisionModal === 'APPROVE' && 'Approve Application'}
-              {decisionModal === 'REJECT' && 'Reject Application'}
-              {decisionModal === 'REQUEST_CLARIFICATION' && 'Request Clarification from Citizen'}
+              {decisionModal === 'APPROVE' && t('officer.approveApplication', 'Approve Application')}
+              {decisionModal === 'REJECT' && t('officer.rejectApplication', 'Reject Application')}
+              {decisionModal === 'REQUEST_CLARIFICATION' && t('officer.requestClarification', 'Request Clarification from Citizen')}
             </h3>
 
             <p className={styles.modalDesc}>
@@ -634,7 +620,7 @@ export default function OfficerReview() {
             {(decisionModal === 'REJECT' || decisionModal === 'REQUEST_CLARIFICATION') && (
               <div className={styles.modalFormGroup}>
                 <label className={styles.modalLabel}>
-                  {decisionModal === 'REJECT' ? 'Rejection Reason *' : 'Clarification Message *'}
+                  {decisionModal === 'REJECT' ? t('officer.rejectionReasonLabel', 'Rejection Reason *') : t('officer.clarificationMsgLabel', 'Clarification Message *')}
                 </label>
                 <textarea
                   className={styles.modalTextarea}
@@ -651,7 +637,7 @@ export default function OfficerReview() {
             )}
 
             <div className={styles.modalFormGroup}>
-              <label className={styles.modalLabel}>Internal Admin Notes (Optional)</label>
+              <label className={styles.modalLabel}>{t('officer.internalNotesLabel', 'Internal Admin Notes (Optional)')}</label>
               <input
                 type="text"
                 className={styles.modalInput}
@@ -670,7 +656,7 @@ export default function OfficerReview() {
                   setNotesText('')
                 }}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </button>
               <button
                 className={
@@ -683,7 +669,7 @@ export default function OfficerReview() {
                 onClick={handleDecisionSubmit}
                 disabled={decisionMutation.isPending}
               >
-                {decisionMutation.isPending ? 'Processing...' : 'Confirm Decision'}
+                {decisionMutation.isPending ? t('common.processing', 'Processing...') : t('officer.confirmDecision', 'Confirm Decision')}
               </button>
             </div>
           </div>

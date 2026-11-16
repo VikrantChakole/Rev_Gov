@@ -32,7 +32,8 @@ class CitizenRepository:
         return f"CIT-{seq:03d}"
 
     def create(self, name: str = None, phone: str = None, email: str = None, address: str = None,
-               preferred_language: str = "en", preferred_channel: str = "WEB") -> Citizen:
+               preferred_language: str = "en", preferred_channel: str = "WEB",
+               state: str = "Maharashtra", nationality: str = "Indian") -> Citizen:
         citizen_ref = self._next_citizen_id()
         citizen = Citizen(
             citizen_ref=citizen_ref,
@@ -40,6 +41,8 @@ class CitizenRepository:
             phone=phone,
             email=email,
             address=address,
+            state=state or "Maharashtra",
+            nationality=nationality or "Indian",
             preferred_language=preferred_language,
             preferred_channel=preferred_channel,
         )
@@ -49,13 +52,16 @@ class CitizenRepository:
         return citizen
 
     def update_profile(self, citizen_ref: str, name: str = None, phone: str = None,
-                       email: str = None, address: str = None) -> Citizen | None:
+                       email: str = None, address: str = None,
+                       state: str = None, nationality: str = None) -> Citizen | None:
         c = self.get_by_ref(citizen_ref)
         if c:
             if name is not None: c.name = name
             if phone is not None: c.phone = phone
             if email is not None: c.email = email
             if address is not None: c.address = address
+            if state is not None: c.state = state
+            if nationality is not None: c.nationality = nationality
             c.updated_at = datetime.datetime.utcnow()
             self.db.commit()
             self.db.refresh(c)

@@ -1,4 +1,5 @@
 import client from './client'
+import { STORAGE_KEYS } from '../utils/constants'
 
 export const documentsApi = {
   /** Get all documents for an application with OCR scores */
@@ -45,7 +46,10 @@ export const documentsApi = {
     client.post(`/applications/${appId}/documents/${docId}/verify`, { status }),
 
   /** Get document image URL for preview */
-  getDocumentImageUrl: (appId, docId) =>
-    `${client.defaults.baseURL}/applications/${appId}/documents/${docId}/image`,
+  getDocumentImageUrl: (appId, docId) => {
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
+    const base = `${client.defaults.baseURL}/applications/${appId}/documents/${docId}/image`
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base
+  },
 }
 

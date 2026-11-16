@@ -10,14 +10,14 @@ import {
   Award,
   RefreshCw,
   ArrowRight,
-  TrendingUp,
   Activity,
+  Shield,
   ShieldCheck,
+  ScanLine,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { dashboardApi } from '../../api/dashboard'
 import { applicationsApi } from '../../api/applications'
-import { STATUS_CONFIG } from '../../utils/constants'
 import styles from './AdminDashboard.module.css'
 
 const formatServiceName = (name, id = '') => {
@@ -76,7 +76,6 @@ export default function AdminDashboard() {
 
   const byStatus = overview?.by_status || {}
   const byService = overview?.by_service || {}
-  const stats = overview?.stats || {}
   const totalApps = overview?.total_applications ?? 0
 
   // Count cards (Authoritative from SQLite)
@@ -117,14 +116,20 @@ export default function AdminDashboard() {
             Real-time government oversight, application verification pipeline & audit logging.
           </p>
         </div>
-        <button
-          className={styles.refreshBtn}
-          onClick={() => refetchOverview()}
-          disabled={isFetching}
-        >
-          <RefreshCw size={16} className={isFetching ? styles.spin : ''} />
-          <span>Sync Realtime</span>
-        </button>
+        <div className={styles.headerActions}>
+          <Link to="/admin/ocr-config" className={styles.ocrConfigBtn} title="Configure OCR Engines & Live Test Sandbox">
+            <ScanLine size={16} />
+            <span>OCR Engine & Sandbox</span>
+          </Link>
+          <button
+            className={styles.refreshBtn}
+            onClick={() => refetchOverview()}
+            disabled={isFetching}
+          >
+            <RefreshCw size={16} className={isFetching ? styles.spin : ''} />
+            <span>Sync Realtime</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Metric Cards Grid ── */}

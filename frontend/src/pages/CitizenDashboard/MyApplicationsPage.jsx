@@ -10,6 +10,9 @@ import { useRightPanel } from '../../layouts/RightPanelContext'
 import {
   getStatusUI, FILTER_GROUPS, TIMELINE_STAGES, getTimelineState, SERVICE_ICONS
 } from '../../utils/statusMap'
+import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal'
+import ResumeApplicationModal from '../../components/ResumeApplicationModal/ResumeApplicationModal'
+import PaymentGatewayModal from '../../components/PaymentGatewayModal/PaymentGatewayModal'
 import styles from './MyApplicationsPage.module.css'
 
 /* ── Timeline Steps (horizontal, scrollable on mobile) ── */
@@ -43,7 +46,7 @@ function TimelineSteps({ status }) {
 }
 
 /* ── Application Detail Right Panel ── */
-function ApplicationDetailPanel({ app, onViewDocs, onSubmit, submitting, onPayFee, paying }) {
+function ApplicationDetailPanel({ app, onViewDocs, onSubmit, submitting, onPayFee, paying, onDelete, onResume }) {
   const navigate = useNavigate()
 
   const { data: fields = {}, isLoading: fieldsLoading } = useQuery({
@@ -183,6 +186,17 @@ function ApplicationDetailPanel({ app, onViewDocs, onSubmit, submitting, onPayFe
 
       {/* Action buttons */}
       <div className={styles.detailActions}>
+        {app.status === 'DRAFT' && (
+          <button
+            type="button"
+            className={styles.submitBtn}
+            onClick={() => onResume && onResume(app)}
+            style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit_document</span>
+            Resume Form
+          </button>
+        )}
         {(app.status === 'PAYMENT_REQUIRED' || app.status === 'PAYMENT_PENDING') && (
           <button
             className={styles.submitBtn}
@@ -222,6 +236,15 @@ function ApplicationDetailPanel({ app, onViewDocs, onSubmit, submitting, onPayFe
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>smart_toy</span>
           Continue in Assistant
         </button>
+        <button
+          type="button"
+          className={styles.deleteDetailBtn}
+          onClick={() => onDelete && onDelete(app)}
+          title="Delete this application"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+          Delete Application
+        </button>
       </div>
     </div>
   )
@@ -239,6 +262,46 @@ export default function MyApplicationsPage() {
   const [selectedId,   setSelectedId]   = useState(null)
   const [submitting,   setSubmitting]   = useState(false)
   const [paying,       setPaying]       = useState(false)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [isNewAppModalOpen, setIsNewAppModalOpen] = useState(false)
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    app: null,
+    isDeleting: false,
+  })
+
+  const [resumeModal, setResumeModal] = useState({
+    isOpen: false,
+    app: null,
+  })
+
+  const handleResumeClick = useCallback((app) => {
+    setResumeModal({ isOpen: true, app })
+  }, [])
+
+  const handleDeleteClick = useCallback((app) => {
+    setDeleteModal({ isOpen: true, app, isDeleting: false })
+  }, [])
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteModal.app) return
+    const targetId = deleteModal.app.id || deleteModal.app.application_number
+    setDeleteModal((prev) => ({ ...prev, isDeleting: true }))
+    try {
+      await applicationsApi.deleteApplication(targetId)
+      toast.success(`Application #${deleteModal.app.application_number || targetId} deleted successfully`)
+      setDeleteModal({ isOpen: false, app: null, isDeleting: false })
+      queryClient.invalidateQueries(['myApplications'])
+      refetch()
+      if (selectedId === targetId || selectedId === deleteModal.app.id) {
+        setSelectedId(null)
+      }
+    } catch (err) {
+      console.error('Failed to delete application:', err)
+      toast.error(err.message || 'Failed to delete application.')
+      setDeleteModal((prev) => ({ ...prev, isDeleting: false }))
+    }
+  }, [deleteModal.app, queryClient, refetch, selectedId])
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['myApplications', citizenIdentifier],
@@ -294,22 +357,10 @@ export default function MyApplicationsPage() {
   }, [selectedApp, queryClient, refetch])
 
   // Pay fee
-  const handlePayFee = useCallback(async () => {
+  const handlePayFee = useCallback(() => {
     if (!selectedApp) return
-    setPaying(true)
-    try {
-      const citizenId = citizenUser?.phone || citizenUser?.identifier || selectedApp.citizen_ref || 'CITIZEN'
-      await applicationsApi.initiatePayment(selectedApp.id, citizenId, 50.0)
-      toast.success('Payment completed successfully! Certificate generated.')
-      queryClient.invalidateQueries(['myApplications'])
-      queryClient.invalidateQueries(['documents', selectedApp.id])
-      refetch()
-    } catch (err) {
-      toast.error(err.message || 'Payment failed')
-    } finally {
-      setPaying(false)
-    }
-  }, [selectedApp, citizenUser, queryClient, refetch])
+    setIsPaymentModalOpen(true)
+  }, [selectedApp])
 
   // Inject right panel
   useEffect(() => {
@@ -323,12 +374,14 @@ export default function MyApplicationsPage() {
           submitting={submitting}
           onPayFee={handlePayFee}
           paying={paying}
+          onDelete={handleDeleteClick}
+          onResume={handleResumeClick}
         />
       )
     } else {
       clearRightPanel()
     }
-  }, [selectedApp?.id, submitting, paying, handlePayFee])
+  }, [selectedApp?.id, submitting, paying, handlePayFee, handleDeleteClick, handleResumeClick])
 
   useEffect(() => () => clearRightPanel(), [])
 
@@ -354,10 +407,14 @@ export default function MyApplicationsPage() {
           <h1 className={styles.pageTitle}>My Applications</h1>
           <p className={styles.pageSub}>Track and manage your ongoing service requests</p>
         </div>
-        <Link to="/assistant" className={styles.newAppBtn}>
+        <button 
+          type="button" 
+          className={styles.newAppBtn}
+          onClick={() => setIsNewAppModalOpen(true)}
+        >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
           New Application
-        </Link>
+        </button>
       </header>
 
       {/* Filter Pills */}
@@ -399,10 +456,14 @@ export default function MyApplicationsPage() {
           </span>
           <h3 className={styles.emptyTitle}>No Applications Found</h3>
           <p className={styles.emptyDesc}>Start a new application via the AI Assistant.</p>
-          <Link to="/assistant" className={styles.startBtn}>
+          <button 
+            type="button" 
+            className={styles.startBtn}
+            onClick={() => setIsNewAppModalOpen(true)}
+          >
             <span className="material-symbols-outlined">add</span>
             Start New Application
-          </Link>
+          </button>
         </div>
       ) : (
         <div className={styles.cardList}>
@@ -493,11 +554,31 @@ export default function MyApplicationsPage() {
                   </div>
                 )}
 
-                {/* View details */}
+                {/* View details, Resume & Delete */}
                 <div className={styles.cardFooter}>
+                  {app.status === 'DRAFT' && (
+                    <button
+                      type="button"
+                      className={styles.resumeCardBtn}
+                      onClick={e => { e.stopPropagation(); handleResumeClick(app) }}
+                      title="Resume application"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit_document</span>
+                      Resume
+                    </button>
+                  )}
                   <button className={styles.viewBtn} onClick={e => { e.stopPropagation(); setSelectedId(app.id) }}>
                     View Details
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.deleteCardBtn}
+                    onClick={e => { e.stopPropagation(); handleDeleteClick(app) }}
+                    title="Delete application"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete</span>
+                    Delete
                   </button>
                 </div>
               </div>
@@ -505,6 +586,91 @@ export default function MyApplicationsPage() {
           })}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div
+          className={styles.modalBackdrop}
+          onClick={() => !deleteModal.isDeleting && setDeleteModal({ isOpen: false, app: null, isDeleting: false })}
+        >
+          <div className={styles.deleteModalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.deleteModalHeader}>
+              <div className={styles.deleteWarningIcon}>
+                <span className="material-symbols-outlined" style={{ fontSize: 24 }}>delete</span>
+              </div>
+              <h3 className={styles.deleteModalTitle}>Delete Application</h3>
+            </div>
+
+            <p className={styles.deleteModalBody}>
+              Are you sure you want to permanently delete this application record? All uploaded documents, form data, and progress will be removed. This action cannot be undone.
+            </p>
+
+            {deleteModal.app && (
+              <div className={styles.deleteModalAppDetails}>
+                <div>
+                  <strong>Service:</strong> {formatService(deleteModal.app)}
+                </div>
+                <div>
+                  <strong>Application Number:</strong> #{deleteModal.app.application_number || deleteModal.app.id}
+                </div>
+                {deleteModal.app.tracking_id && (
+                  <div>
+                    <strong>Tracking ID:</strong> {deleteModal.app.tracking_id}
+                  </div>
+                )}
+                <div>
+                  <strong>Status:</strong> {deleteModal.app.status}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.deleteModalActions}>
+              <button
+                type="button"
+                className={styles.cancelModalBtn}
+                onClick={() => setDeleteModal({ isOpen: false, app: null, isDeleting: false })}
+                disabled={deleteModal.isDeleting}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className={styles.confirmDeleteBtn}
+                onClick={handleConfirmDelete}
+                disabled={deleteModal.isDeleting}
+              >
+                {deleteModal.isDeleting ? 'Deleting...' : 'Delete Application'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Application Modal */}
+      <ResumeApplicationModal
+        isOpen={resumeModal.isOpen}
+        onClose={() => setResumeModal({ isOpen: false, app: null })}
+        application={resumeModal.app}
+      />
+
+      {/* New Application Modal */}
+      <NewApplicationModal
+        isOpen={isNewAppModalOpen}
+        onClose={() => setIsNewAppModalOpen(false)}
+      />
+
+      {/* Statutory Payment Gateway Modal */}
+      <PaymentGatewayModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        app={selectedApp}
+        onSuccess={() => {
+          queryClient.invalidateQueries(['myApplications'])
+          queryClient.invalidateQueries(['documents', selectedApp?.id])
+          refetch()
+        }}
+      />
     </div>
   )
 }

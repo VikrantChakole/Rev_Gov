@@ -1792,7 +1792,7 @@ Low-Confidence handling:
 | # | Certificate | Key Validation Rules | Required Docs | Fee |
 |---|---|---|---|---|
 | 1 | **Income Certificate** | Income range, annual period | Salary slip / Bank stmt | ₹50 |
-| 2 | **Domicile Certificate** | Residence duration ≥ 15 years | Proof of residence, voter ID | ₹50 |
+| 2 | **Domicile Certificate** | Residence duration ≥ 2 years | Proof of residence, voter ID | ₹50 |
 | 3 | **Caste Certificate** | SC/ST/OBC category, lineage | Father's caste cert, school cert | ₹50 |
 | 4 | **Nativity Certificate** | Born in state | Birth certificate, school records | ₹50 |
 | 5 | **Solvency Certificate** | Property valuation, income | Property documents, income proof | ₹100 |

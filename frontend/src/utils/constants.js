@@ -28,12 +28,14 @@ export const NODE_STEPS = [
 ]
 
 export const APP_STATUS = {
-  DRAFT:        'DRAFT',
-  SUBMITTED:    'SUBMITTED',
-  UNDER_REVIEW: 'UNDER_REVIEW',
-  APPROVED:     'APPROVED',
-  REJECTED:     'REJECTED',
-  ESCALATED:    'ESCALATED',
+  DRAFT:                     'DRAFT',
+  SUBMITTED:                 'SUBMITTED',
+  UNDER_REVIEW:              'UNDER_REVIEW',
+  CORRECTION_NEEDED:         'CORRECTION_NEEDED',
+  DISTRICT_OFFICER_APPROVAL: 'DISTRICT_OFFICER_APPROVAL',
+  APPROVED:                  'APPROVED',
+  REJECTED:                  'REJECTED',
+  ESCALATED:                 'ESCALATED',
 }
 
 export const STATUS_CONFIG = {
@@ -50,6 +52,8 @@ export const STATUS_CONFIG = {
   SUBMITTED_FOR_VERIFICATION: { label: 'Submitted', color: '#4f46e5', bg: '#eef2ff', dot: '#6366f1' },
   UNDER_REVIEW:               { label: 'Under Review', color: '#b45309', bg: '#fef3c7', dot: '#f59e0b' },
   CLARIFICATION_REQUIRED:     { label: 'Clarification Required', color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
+  CORRECTION_NEEDED:          { label: 'Correction Needed', color: '#dc2626', bg: '#fee2e2', dot: '#ef4444' },
+  DISTRICT_OFFICER_APPROVAL:  { label: 'District Officer Approval', color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
   APPROVED:                   { label: 'Approved', color: '#16a34a', bg: '#dcfce7', dot: '#22c55e' },
   PAYMENT_REQUIRED:           { label: 'Payment Required', color: '#ea580c', bg: '#ffedd5', dot: '#f97316' },
   PAYMENT_COMPLETED:          { label: 'Payment Completed', color: '#0891b2', bg: '#cffafe', dot: '#06b6d4' },
@@ -61,7 +65,7 @@ export const STATUS_CONFIG = {
 }
 
 export const CHANNELS = ['WEB', 'WHATSAPP', 'IVR', 'MOBILE']
-export const SUPPORTED_LANGS = ['en','hi','mr']
+export const SUPPORTED_LANGS = ['en', 'hi', 'mr', 'bn', 'te', 'ta', 'gu', 'kn', 'ml', 'pa']
 
 export const FRAUD_THRESHOLDS = {
   PASS_MAX:   0.40,
@@ -84,7 +88,12 @@ export const PRIORITY_CONFIG = {
   LOW:    { color: '#22c55e', bg: '#f0fdf4' },
 }
 
-export const ROLES = { ADMIN: 'ADMIN', OFFICER: 'OFFICER' }
+export const ROLES = {
+  ADMIN: 'ADMIN',
+  OFFICER: 'OFFICER',
+  DESK_CLERK: 'DESK_CLERK',
+  DISTRICT_OFFICER: 'DISTRICT_OFFICER',
+}
 
 export const STORAGE_KEYS = {
   AUTH_TOKEN:          'rsp_auth_token',
@@ -92,6 +101,7 @@ export const STORAGE_KEYS = {
   CITIZEN_IDENTIFIER:  'rsp_citizen_id',
   SESSION_ID:          'rsp_session_id',
   PREFERRED_LANG:      'rsp_lang',
+  USER_STATE:          'rsp_user_state',
   RECENT_SEARCHES:     'rsp_recent_searches',
 }
 
@@ -101,3 +111,43 @@ export const POLL_INTERVALS = {
   SERVICE_HEALTH:10000,
   ESCALATIONS:   10000,
 }
+
+export const INDIAN_STATES = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+]
+

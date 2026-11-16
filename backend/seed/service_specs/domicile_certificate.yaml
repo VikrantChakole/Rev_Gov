@@ -110,7 +110,7 @@ eligibility:
       hi: "आवेदक की आयु 18 वर्ष से अधिक होनी चाहिए"
   - rule: "residence_years >= 15"
     error:
-      en: "Applicant must have resided in the state for at least 15 years"
+      en: "Applicant must have resided in the state for at least 2 years"
       hi: "आवेदक को राज्य में कम से कम 15 वर्षों से निवास करना चाहिए"
 
 cross_field_validations:

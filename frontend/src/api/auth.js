@@ -16,3 +16,5 @@ export const updateCitizenProfile = (data) => client.patch('/auth/citizen/profil
 
 export const getMe = () => client.get('/auth/me')
 export const logout = () => client.post('/auth/logout')
+export const getAdminUsers = (params = {}) => client.get('/auth/admin/users', { params })
+export const createAdminUser = (data) => client.post('/auth/admin/users', data)

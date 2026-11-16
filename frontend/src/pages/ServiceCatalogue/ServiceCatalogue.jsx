@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, Search } from 'lucide-react'
 import useChatStore from '../../store/chatStore'
 import { applicationsApi } from '../../api/applications'
-import { t } from '../../i18n'
 import styles from './ServiceCatalogue.module.css'
 
 const SERVICE_ICONS = {
@@ -12,6 +12,7 @@ const SERVICE_ICONS = {
 }
 
 export default function ServiceCatalogue() {
+  const { t } = useTranslation()
   const { language } = useChatStore()
   const [filter, setFilter] = useState('all')
   const [searchQ, setSearchQ] = useState('')

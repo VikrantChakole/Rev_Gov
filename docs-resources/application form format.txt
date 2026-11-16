@@ -1,0 +1,39 @@
+Application form for Caste Certificate/ Income certificate/ Domicile certificate or OBC Non Creamy Layer Certificate.
+
+I do hereby apply for issue of Caste Certificate/ Income certificate/ Domicile certificate or OBC Non Creamy Layer Certificate. my particulars are as under -
+
+1. Name
+2. Father's Name
+3. Mother's Name
+4. Date of Birth
+5. Sex (Male/Femal/others)
+6. Maritial Status (Yes/No)
+7. If Yes Husband's Name
+8. Present Residential Address
+9. Years of residence (Only for Domicile certificate)
+10. Purpose of the certificate (Only for Income certificate)
+11. Enclosed documents
+
+Identity proofs (any one):
+1. Aadhaar card
+2. PAN card
+3. Voter ID
+4. Passport
+
+Residential Proof (any one):
+1. Water Bill
+2. Electricity Bill
+3. Land papers
+4. Rent aggrement paper
+
+Proof of Age (any one):
+1. Birth Certificate
+2. School Leaving Certificate
+
+Signature
+
+Passport image
+
+checkbox[]
+The above particulars are correct as per the best of my knowledge. In case of any false information. I shall be held responsible and appropriate action may be taken against me.
+

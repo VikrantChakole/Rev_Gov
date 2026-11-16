@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { CONV_NODES, STORAGE_KEYS } from '../utils/constants'
 import { conversationApi } from '../api/conversation'
+import i18n from '../i18n'
 
 const useChatStore = create((set, get) => ({
   citizenIdentifier: localStorage.getItem(STORAGE_KEYS.CITIZEN_IDENTIFIER) || null,
@@ -29,6 +30,10 @@ const useChatStore = create((set, get) => ({
   },
   setLanguage: (lang) => {
     localStorage.setItem(STORAGE_KEYS.PREFERRED_LANG, lang)
+    localStorage.setItem('revgov_lang', lang)
+    if (i18n && i18n.changeLanguage) {
+      i18n.changeLanguage(lang)
+    }
     set({ language: lang })
   },
   setTyping: (v) => set({ isTyping: v }),

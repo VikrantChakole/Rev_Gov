@@ -1,0 +1,786 @@
+/* ══════════════════════════════════════════════════════════════
+   Application Receipt Modal & Official Printable Document
+   ══════════════════════════════════════════════════════════════ */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.modalCard {
+  background: #f8fafc;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 860px;
+  max-height: 92vh;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+/* Modal Toolbar */
+.modalToolbar {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #2563eb;
+  flex-shrink: 0;
+}
+
+.toolbarTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbarIcon {
+  color: #60a5fa;
+}
+
+.toolbarTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btnPrintPrimary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  transition: all 0.15s ease;
+}
+
+.btnPrintPrimary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-1px);
+}
+
+.btnClose {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnClose:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Printable Receipt Sheet
+   ══════════════════════════════════════════════════════════════ */
+.receiptSheet {
+  background: #ffffff;
+  padding: 32px 36px;
+  overflow-y: auto;
+  color: #0f172a;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  border: 1px solid #e2e8f0;
+  margin: 16px;
+  border-radius: 8px;
+  position: relative;
+}
+
+/* Header */
+.receiptHeader {
+  text-align: center;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.govtInsigniaWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.emblemSymbol {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #1e3a8a;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.govtState {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.06em;
+  margin: 0 0 2px 0;
+}
+
+.govtDept {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px 0;
+}
+
+.portalSub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.receiptDocTitleBox {
+  background: #f1f5f9;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  margin-top: 10px;
+}
+
+.receiptDocTitle {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0 0 3px 0;
+  letter-spacing: 0.04em;
+}
+
+.receiptActRef {
+  font-size: 0.72rem;
+  color: #475569;
+  font-weight: 600;
+  font-style: italic;
+  display: block;
+}
+
+/* Identifiers Banner */
+.identifiersBanner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: #f8fafc;
+  border: 1.5px solid #0f172a;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.idCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.idCellLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.idCellValue {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.idCellValueTracking {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #1d4ed8;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.statusBadge {
+  display: inline-block;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+/* Meta Strip */
+.metaStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin-bottom: 18px;
+  font-size: 0.8rem;
+}
+
+.metaStripItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metaStripLabel {
+  color: #475569;
+  font-weight: 500;
+}
+
+.metaStripValue {
+  color: #0f172a;
+}
+
+/* Section Blocks */
+.sectionBlock {
+  margin-bottom: 18px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 5px 12px;
+  border-radius: 4px 4px 0 0;
+}
+
+.sectionNum {
+  background: #2563eb;
+  color: #ffffff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* Particulars Table */
+.particularsTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #cbd5e1;
+  font-size: 0.82rem;
+}
+
+.particularsTable td {
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.tdLabel {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #475569;
+  width: 22%;
+  font-size: 0.78rem;
+}
+
+.tdVal {
+  color: #0f172a;
+  width: 28%;
+}
+
+/* Documents Table */
+.docsTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.docsTable th {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 800;
+  color: #334155;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.docsTable td {
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+}
+
+.tdDocSlot {
+  font-weight: 700;
+  color: #1e293b;
+  width: 22%;
+}
+
+.tdDocType {
+  color: #0f172a;
+  width: 32%;
+}
+
+.tdDocFile {
+  color: #475569;
+  font-family: monospace;
+  font-size: 0.74rem;
+  width: 26%;
+}
+
+.tdDocStatus {
+  width: 20%;
+}
+
+.docStatusBadge {
+  display: inline-block;
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #bbf7d0;
+}
+
+/* Declaration & Digital Stamp */
+.declarationStampBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.declarationTextWrap {
+  flex: 1;
+}
+
+.declarationTitle {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.declarationStatement {
+  font-size: 0.78rem;
+  color: #334155;
+  line-height: 1.45;
+  margin: 0 0 6px 0;
+  font-style: italic;
+}
+
+.declarationMeta {
+  font-size: 0.72rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* Digital Stamp */
+.digitalStamp {
+  width: 140px;
+  height: 140px;
+  border: 2.5px dashed #1d4ed8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  color: #1d4ed8;
+  transform: rotate(-6deg);
+}
+
+.stampInner {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #1d4ed8;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px;
+}
+
+.stampGovt {
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.stampEmblem {
+  font-size: 0.65rem;
+  font-weight: 900;
+  margin: 2px 0;
+}
+
+.stampStatus {
+  background: #1d4ed8;
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 2px;
+  margin: 2px 0;
+  letter-spacing: 0.05em;
+}
+
+.stampDate {
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.stampId {
+  font-size: 0.55rem;
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Receipt Footer */
+.receiptFooter {
+  border-top: 1.5px solid #0f172a;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footerNotice {
+  font-size: 0.74rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.footerMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 6mm 8mm;
+}
+
+@media print {
+  :global(body *) {
+    visibility: hidden;
+  }
+
+  :global(#printable-receipt),
+  :global(#printable-receipt *) {
+    visibility: visible !important;
+  }
+
+  :global(#printable-receipt) {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 6mm 8mm !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    box-shadow: none !important;
+    z-index: 9999999 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .noPrint {
+    display: none !important;
+  }
+
+  .modalOverlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .modalCard {
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  /* ── Compact 1-Page A4 Overrides ── */
+  .receiptSheet {
+    padding: 4px 6px !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  .receiptHeader {
+    padding-bottom: 6px !important;
+    margin-bottom: 7px !important;
+    border-bottom: 1.5px solid #0f172a !important;
+  }
+
+  .govtInsigniaWrap {
+    margin-bottom: 3px !important;
+  }
+
+  .emblemSymbol {
+    font-size: 0.86rem !important;
+    margin-bottom: 1px !important;
+  }
+
+  .govtState {
+    font-size: 0.94rem !important;
+    margin: 0 0 1px 0 !important;
+  }
+
+  .govtDept {
+    font-size: 0.78rem !important;
+    margin: 0 0 2px 0 !important;
+  }
+
+  .portalSub {
+    font-size: 0.6rem !important;
+  }
+
+  .receiptDocTitleBox {
+    padding: 3px 6px !important;
+    margin-top: 4px !important;
+  }
+
+  .receiptDocTitle {
+    font-size: 0.86rem !important;
+    margin: 0 0 1px 0 !important;
+  }
+
+  .receiptActRef {
+    font-size: 0.6rem !important;
+  }
+
+  .identifiersBanner {
+    padding: 5px 8px !important;
+    margin-bottom: 6px !important;
+    gap: 8px !important;
+  }
+
+  .idCellLabel {
+    font-size: 0.56rem !important;
+  }
+
+  .idCellValue {
+    font-size: 0.78rem !important;
+  }
+
+  .idCellValueTracking {
+    font-size: 0.84rem !important;
+  }
+
+  .statusBadge {
+    font-size: 0.6rem !important;
+    padding: 1px 5px !important;
+  }
+
+  .metaStrip {
+    padding: 3px 8px !important;
+    margin-bottom: 6px !important;
+    font-size: 0.66rem !important;
+  }
+
+  .sectionBlock {
+    margin-bottom: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .sectionHeader {
+    padding: 2.5px 8px !important;
+  }
+
+  .sectionNum {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 0.62rem !important;
+  }
+
+  .sectionTitle {
+    font-size: 0.68rem !important;
+  }
+
+  .particularsTable {
+    font-size: 0.68rem !important;
+  }
+
+  .particularsTable td {
+    padding: 2.5px 6px !important;
+    line-height: 1.25 !important;
+  }
+
+  .tdLabel {
+    font-size: 0.66rem !important;
+    width: 22% !important;
+  }
+
+  .tdVal {
+    font-size: 0.68rem !important;
+    width: 28% !important;
+  }
+
+  .docsTable {
+    font-size: 0.66rem !important;
+  }
+
+  .docsTable th {
+    padding: 2.5px 6px !important;
+    font-size: 0.62rem !important;
+  }
+
+  .docsTable td {
+    padding: 2.5px 6px !important;
+    font-size: 0.64rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .docStatusBadge {
+    font-size: 0.6rem !important;
+    padding: 1px 4px !important;
+  }
+
+  .declarationStampBox {
+    padding: 5px 8px !important;
+    margin-bottom: 5px !important;
+    gap: 12px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .declarationTitle {
+    font-size: 0.68rem !important;
+    margin-bottom: 1px !important;
+  }
+
+  .declarationStatement {
+    font-size: 0.62rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .declarationMeta {
+    font-size: 0.6rem !important;
+  }
+
+  .digitalStamp {
+    width: 80px !important;
+    height: 80px !important;
+    padding: 2px !important;
+    border-width: 1.5px !important;
+  }
+
+  .stampGovt {
+    font-size: 0.42rem !important;
+  }
+
+  .stampEmblem {
+    font-size: 0.46rem !important;
+    margin: 0 !important;
+  }
+
+  .stampStatus {
+    font-size: 0.44rem !important;
+    padding: 0 3px !important;
+    margin: 1px 0 !important;
+  }
+
+  .stampDate {
+    font-size: 0.44rem !important;
+  }
+
+  .stampId {
+    font-size: 0.4rem !important;
+  }
+
+  .receiptFooter {
+    padding-top: 4px !important;
+    gap: 3px !important;
+    border-top: 1px solid #0f172a !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .footerNotice {
+    font-size: 0.6rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .footerMetaRow {
+    font-size: 0.56rem !important;
+  }
+}

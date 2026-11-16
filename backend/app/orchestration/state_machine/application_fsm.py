@@ -47,9 +47,13 @@ class AppState(str, Enum):
     CONSENT_CONFIRMED           = "CONSENT_CONFIRMED"        # Citizen checked consent checkbox
 
     # ── Government Submission & Review ──
+    SUBMITTED                   = "SUBMITTED"
     SUBMITTED_FOR_VERIFICATION  = "SUBMITTED_FOR_VERIFICATION"
     UNDER_REVIEW                = "UNDER_REVIEW"
+    ESCALATED                   = "ESCALATED"               # Citizen escalated to desk clerk
     CLARIFICATION_REQUIRED      = "CLARIFICATION_REQUIRED"  # Admin requested more info
+    CORRECTION_NEEDED           = "CORRECTION_NEEDED"       # Desk Clerk requested citizen correction
+    DISTRICT_OFFICER_APPROVAL   = "DISTRICT_OFFICER_APPROVAL" # Forwarded to District Officer
 
     # ── Decision ──
     APPROVED                    = "APPROVED"
@@ -81,14 +85,18 @@ STATE_PROGRESS: Dict[str, int] = {
     AppState.READY_FOR_REVIEW:             65,
     AppState.FINAL_REVIEW:                 70,
     AppState.CONSENT_CONFIRMED:            73,
-    AppState.SUBMITTED_FOR_VERIFICATION:   78,
-    AppState.UNDER_REVIEW:                 83,
-    AppState.CLARIFICATION_REQUIRED:       80,
-    AppState.APPROVED:                     88,
+    AppState.SUBMITTED:                    75,
+    AppState.SUBMITTED_FOR_VERIFICATION:   75,
+    AppState.UNDER_REVIEW:                 80,
+    AppState.ESCALATED:                    78,
+    AppState.CLARIFICATION_REQUIRED:       78,
+    AppState.CORRECTION_NEEDED:            78,
+    AppState.PAYMENT_REQUIRED:             85,
+    AppState.PAYMENT_COMPLETED:            88,
+    AppState.DISTRICT_OFFICER_APPROVAL:    92,
+    AppState.APPROVED:                     95,
     AppState.REJECTED:                     100,
-    AppState.PAYMENT_REQUIRED:             90,
-    AppState.PAYMENT_COMPLETED:            93,
-    AppState.CERTIFICATE_GENERATION:       96,
+    AppState.CERTIFICATE_GENERATION:       97,
     AppState.CERTIFICATE_READY:            99,
     AppState.COMPLETED:                    100,
 }
@@ -138,57 +146,121 @@ VALID_TRANSITIONS: Dict[str, List[str]] = {
     AppState.READY_FOR_REVIEW: [
         AppState.FINAL_REVIEW,             # Citizen opens 4-section form
         AppState.FIX_REQUIRED,             # Citizen wants to edit something
+        AppState.SUBMITTED,                # Citizen submission
         AppState.SUBMITTED_FOR_VERIFICATION, # Direct submission
         AppState.UNDER_REVIEW,             # Direct officer review
         AppState.APPROVED,                 # Officer decision
         AppState.REJECTED,                 # Officer decision
         AppState.CLARIFICATION_REQUIRED,   # Officer decision
+        AppState.CORRECTION_NEEDED,
     ],
     AppState.FINAL_REVIEW: [
         AppState.CONSENT_CONFIRMED,        # Citizen checked consent
         AppState.FIX_REQUIRED,             # Citizen found issue in review
         AppState.INFORMATION_COLLECTION,   # Edit basic details
         AppState.DOCUMENT_COLLECTION,      # Edit documents
+        AppState.SUBMITTED,
         AppState.SUBMITTED_FOR_VERIFICATION,
         AppState.UNDER_REVIEW,
         AppState.APPROVED,
         AppState.REJECTED,
         AppState.CLARIFICATION_REQUIRED,
+        AppState.CORRECTION_NEEDED,
     ],
     AppState.CONSENT_CONFIRMED: [
+        AppState.SUBMITTED,
         AppState.SUBMITTED_FOR_VERIFICATION,
         AppState.UNDER_REVIEW,
         AppState.APPROVED,
         AppState.REJECTED,
         AppState.CLARIFICATION_REQUIRED,
+        AppState.CORRECTION_NEEDED,
+    ],
+    AppState.SUBMITTED: [
+        AppState.UNDER_REVIEW,
+        AppState.APPROVED,
+        AppState.REJECTED,
+        AppState.CLARIFICATION_REQUIRED,
+        AppState.CORRECTION_NEEDED,
+        AppState.DISTRICT_OFFICER_APPROVAL,
+        AppState.ESCALATED,
     ],
     AppState.SUBMITTED_FOR_VERIFICATION: [
         AppState.UNDER_REVIEW,
         AppState.APPROVED,
         AppState.REJECTED,
         AppState.CLARIFICATION_REQUIRED,
+        AppState.CORRECTION_NEEDED,
+        AppState.DISTRICT_OFFICER_APPROVAL,
+        AppState.ESCALATED,
     ],
     AppState.UNDER_REVIEW: [
+        AppState.PAYMENT_REQUIRED,          # Desk clerk verifies documents -> requests payment
         AppState.APPROVED,
         AppState.REJECTED,
         AppState.CLARIFICATION_REQUIRED,
+        AppState.CORRECTION_NEEDED,
+        AppState.DISTRICT_OFFICER_APPROVAL,
+        AppState.ESCALATED,
+    ],
+    AppState.ESCALATED: [
+        AppState.UNDER_REVIEW,
+        AppState.DISTRICT_OFFICER_APPROVAL,
+        AppState.APPROVED,
+        AppState.CORRECTION_NEEDED,
+        AppState.CLARIFICATION_REQUIRED,
+        AppState.REJECTED,
     ],
     AppState.CLARIFICATION_REQUIRED: [
         AppState.INFORMATION_COLLECTION,   # Need more info from citizen
         AppState.DOCUMENT_COLLECTION,      # Need more documents
+        AppState.SUBMITTED,
         AppState.SUBMITTED_FOR_VERIFICATION,  # Citizen resubmitted after clarification
         AppState.UNDER_REVIEW,
         AppState.APPROVED,
         AppState.REJECTED,
+        AppState.ESCALATED,
+    ],
+    AppState.CORRECTION_NEEDED: [
+        AppState.INFORMATION_COLLECTION,   # Need more info from citizen
+        AppState.DOCUMENT_COLLECTION,      # Need more documents
+        AppState.SUBMITTED,
+        AppState.SUBMITTED_FOR_VERIFICATION,  # Citizen resubmitted after clarification
+        AppState.UNDER_REVIEW,
+        AppState.APPROVED,
+        AppState.REJECTED,
+        AppState.ESCALATED,
+    ],
+    AppState.PAYMENT_REQUIRED: [
+        AppState.DISTRICT_OFFICER_APPROVAL, # Desk clerk validates payment -> forwards to District Officer
+        AppState.PAYMENT_COMPLETED,
+        AppState.CORRECTION_NEEDED,
+        AppState.UNDER_REVIEW,
+        AppState.REJECTED,
+        AppState.ESCALATED,
+    ],
+    AppState.DISTRICT_OFFICER_APPROVAL: [
+        AppState.APPROVED,                  # District Officer grants final approval -> triggers certificate
+        AppState.REJECTED,
+        AppState.CLARIFICATION_REQUIRED,
+        AppState.CORRECTION_NEEDED,
+        AppState.UNDER_REVIEW,
+        AppState.ESCALATED,
     ],
     AppState.APPROVED: [
-        AppState.PAYMENT_REQUIRED,         # ONLY path to payment — through approval
+        AppState.CERTIFICATE_GENERATION,    # Payment already done prior to DO approval
+        AppState.PAYMENT_REQUIRED,          # Backward compat
+        AppState.COMPLETED,
     ],
-    AppState.REJECTED: [],                 # Terminal
-    AppState.PAYMENT_REQUIRED: [
-        AppState.PAYMENT_COMPLETED,
-    ],
+    AppState.REJECTED: [
+        AppState.SUBMITTED,
+        AppState.SUBMITTED_FOR_VERIFICATION,
+        AppState.UNDER_REVIEW,
+        AppState.DOCUMENT_COLLECTION,
+        AppState.INFORMATION_COLLECTION,
+    ],                 # Can be re-submitted upon document rectification
     AppState.PAYMENT_COMPLETED: [
+        AppState.DISTRICT_OFFICER_APPROVAL,
         AppState.CERTIFICATE_GENERATION,
     ],
     AppState.CERTIFICATE_GENERATION: [
@@ -230,7 +302,19 @@ TRANSITION_LABELS: Dict[str, str] = {
     "CLARIFICATION_REQUIRED→INFORMATION_COLLECTION":        "Citizen providing additional information",
     "CLARIFICATION_REQUIRED→DOCUMENT_COLLECTION":           "Citizen uploading additional documents",
     "CLARIFICATION_REQUIRED→SUBMITTED_FOR_VERIFICATION":    "Resubmitted after clarification",
-    "APPROVED→PAYMENT_REQUIRED":                            "Application approved — payment required",  # ← correct
+    "CLARIFICATION_REQUIRED→UNDER_REVIEW":                  "Resubmitted after clarification and reassigned to reviewer",
+    "CORRECTION_NEEDED→UNDER_REVIEW":                       "Resubmitted after corrections and reassigned to reviewer",
+    "REJECTED→UNDER_REVIEW":                                "Resubmitted after rectification and reassigned to reviewer",
+    "UNDER_REVIEW→PAYMENT_REQUIRED":                        "Documents verified by clerk — payment required",
+    "PAYMENT_REQUIRED→DISTRICT_OFFICER_APPROVAL":           "Payment validated by clerk — forwarded to District Officer",
+    "DISTRICT_OFFICER_APPROVAL→APPROVED":                   "Final approval granted by District Officer",
+    "SUBMITTED→ESCALATED":                                  "Citizen escalated application to desk clerk",
+    "SUBMITTED_FOR_VERIFICATION→ESCALATED":                 "Citizen escalated application to desk clerk",
+    "UNDER_REVIEW→ESCALATED":                               "Citizen escalated application to desk clerk",
+    "ESCALATED→UNDER_REVIEW":                               "Desk clerk resumed review of escalated application",
+    "ESCALATED→DISTRICT_OFFICER_APPROVAL":                  "Escalated application forwarded to District Officer",
+    "APPROVED→CERTIFICATE_GENERATION":                      "Certificate being generated",
+    "APPROVED→PAYMENT_REQUIRED":                            "Application approved — payment required",
     "PAYMENT_REQUIRED→PAYMENT_COMPLETED":                   "Payment received",
     "PAYMENT_COMPLETED→CERTIFICATE_GENERATION":             "Certificate being generated",
     "CERTIFICATE_GENERATION→CERTIFICATE_READY":             "Certificate ready for download",

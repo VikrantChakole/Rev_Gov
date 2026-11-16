@@ -7,14 +7,12 @@ import styles from './CitizenLayout.module.css'
 
 const NAV_ITEMS = [
   { to: '/assistant', icon: 'smart_toy',          label: 'Assistant' },
-  { to: '/applications', icon: 'assignment',       label: 'Applications' },
   { to: '/services',     icon: 'verified',         label: 'Certificates' },
   { to: '/status',       icon: 'history',          label: 'Recent' },
 ]
 
 const NAV_ITEMS_AUTH = [
   { to: '/assistant',    icon: 'smart_toy',         label: 'Assistant' },
-  { to: '/applications', icon: 'assignment',        label: 'Applications' },
   { to: '/profile',      icon: 'person',            label: 'Profile' },
   { to: '/services',     icon: 'verified',          label: 'Certificates' },
   { to: '/status',       icon: 'history',           label: 'Track Status' },
@@ -22,7 +20,6 @@ const NAV_ITEMS_AUTH = [
 
 const MOBILE_NAV = [
   { to: '/assistant',    icon: 'smart_toy',  label: 'Assistant' },
-  { to: '/applications', icon: 'assignment', label: 'Apps' },
   { to: '/services',     icon: 'verified',   label: 'Services' },
   { to: '/status',       icon: 'history',    label: 'Track' },
 ]

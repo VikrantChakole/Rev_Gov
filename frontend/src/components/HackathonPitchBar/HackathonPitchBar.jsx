@@ -6,6 +6,9 @@ import { Sparkles, AlertTriangle, CreditCard, ShieldCheck, Monitor, X, ChevronUp
 import styles from './HackathonPitchBar.module.css';
 
 export default function HackathonPitchBar() {
+  const isEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('presentation') === 'true';
+  if (!isEnabled) return null;
+
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();

@@ -58,13 +58,16 @@ class ValidationReport:
 FIELD_TYPES = {
     "full_name": "name",
     "applicant_name": "name",
+    "name": "name",
     "father_name": "name",
     "mother_name": "name",
     "spouse_name": "name",
+    "husband_name": "name",
     "dob": "date",
     "applicant_dob": "date",
     "date_of_birth": "date",
-    "gender": "exact",
+    "gender": "gender",
+    "sex": "gender",
     "aadhaar_number": "exact",
     "pan_number": "exact",
     "voter_id": "exact",
@@ -75,6 +78,7 @@ FIELD_TYPES = {
     "amount": "number",
     "transaction_id": "exact",
     "caste_category": "exact",
+    "caste": "exact",
 }
 
 # Weights for overall score — higher = more important field
@@ -98,6 +102,14 @@ CANONICAL_FIELD_MAP = {
     "name": "applicant_name",
     "full_name_en": "applicant_name",
     "applicant_name_en": "applicant_name",
+
+    "father_name": "father_name",
+    "father": "father_name",
+    "father_full_name": "father_name",
+
+    "mother_name": "mother_name",
+    "mother": "mother_name",
+    "mother_full_name": "mother_name",
 
     "dob": "dob",
     "applicant_dob": "dob",
@@ -260,14 +272,9 @@ class MatchingService:
             else:
                 mismatched.append(f)
 
-        # Compute weighted overall score
+        # Compute pure mathematical overall score (exact average of compared fields)
         if field_scores:
-            total_weight = sum(FIELD_WEIGHTS.get(f, 1.0) for f in field_scores)
-            weighted_sum = sum(
-                v["score"] * FIELD_WEIGHTS.get(f, 1.0)
-                for f, v in field_scores.items()
-            )
-            overall = weighted_sum / total_weight if total_weight > 0 else 0.0
+            overall = sum(v["score"] for v in field_scores.values()) / len(field_scores)
         else:
             overall = 0.0
 
@@ -407,10 +414,12 @@ class MatchingService:
             return self._date_match(v1, v2)
         elif field_type == "number":
             return self._number_match(v1, v2)
+        elif field_type == "gender":
+            return self._gender_match(v1, v2)
         elif field_type == "exact":
             return 100.0 if v1.replace(" ", "") == v2.replace(" ", "") else 0.0
         elif field_type == "address":
-            return self._token_overlap(v1, v2)
+            return self._address_match(v1, v2)
         else:
             return self._fuzzy_match(v1, v2)
 
@@ -503,12 +512,48 @@ class MatchingService:
             return f"{year}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
         return None
 
+    def _gender_match(self, g1: str, g2: str) -> float:
+        """Normalized gender comparison supporting English, Marathi, Hindi abbreviations."""
+        def _norm_gender(g: str) -> str:
+            g = g.strip().lower()
+            if g in ("male", "m", "man", "पुरुष", "म"):
+                return "male"
+            if g in ("female", "f", "woman", "महिला", "स्त्री", "फ"):
+                return "female"
+            if g in ("transgender", "trans", "other", "इतर", "तृतीयपंथी"):
+                return "transgender"
+            return g
+
+        norm1 = _norm_gender(g1)
+        norm2 = _norm_gender(g2)
+        if norm1 and norm2 and norm1 == norm2:
+            return 100.0
+        return 0.0
+
+    def _address_match(self, a1: str, a2: str) -> float:
+        """
+        Calculates address match using token containment and Jaccard overlap.
+        Accounts for differences in address length between declared and OCR.
+        """
+        if a1.strip().lower() == a2.strip().lower():
+            return 100.0
+
+        t1 = set(re.findall(r'[\w\u0900-\u097F]+', a1.lower()))
+        t2 = set(re.findall(r'[\w\u0900-\u097F]+', a2.lower()))
+        t1 = {t for t in t1 if len(t) > 1}
+        t2 = {t for t in t2 if len(t) > 1}
+
+        if not t1 or not t2:
+            return 0.0
+
+        intersection = t1 & t2
+        jaccard = (len(intersection) / len(t1 | t2)) * 100.0
+        containment = (len(intersection) / len(t1)) * 100.0 if t1 else 0.0
+
+        combined = (containment * 0.75) + (jaccard * 0.25)
+        return round(max(jaccard, combined), 1)
+
     def _token_overlap(self, a1: str, a2: str) -> float:
         """Token overlap (Jaccard) for address matching."""
-        tokens1 = set(re.findall(r'[\w\u0900-\u097F]+', a1))
-        tokens2 = set(re.findall(r'[\w\u0900-\u097F]+', a2))
-        if not tokens1 or not tokens2:
-            return 0.0
-        intersection = tokens1 & tokens2
-        union = tokens1 | tokens2
-        return round(len(intersection) / len(union) * 100, 1)
+        return self._address_match(a1, a2)
+

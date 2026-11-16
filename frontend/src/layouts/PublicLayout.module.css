@@ -165,14 +165,52 @@
   padding: 0.75rem 1rem;
 }
 
-/* Main content */
-.main { flex: 1; }
+.officerNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 9999px;
+  border: 1.5px solid var(--rg-primary, #00355f);
+  background: transparent;
+  color: var(--rg-primary, #00355f);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.officerNavBtn:hover {
+  background: var(--rg-primary, #00355f);
+  color: #ffffff;
+}
+
+.adminNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 9999px;
+  border: 1px solid var(--rg-outline-variant, #cbd5e1);
+  background: var(--rg-surface-container-low, #f8fafc);
+  color: var(--rg-text-heading, #1e293b);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.adminNavBtn:hover {
+  background: var(--rg-primary, #00355f);
+  color: #ffffff;
+  border-color: var(--rg-primary, #00355f);
+}
 
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   .topbar { padding: 0 1.25rem; }
   .langSwitcher { display: none; }
-  .loginBtn, .registerBtn, .dashboardBtn { display: none; }
+  .loginBtn, .registerBtn, .dashboardBtn, .officerNavBtn, .adminNavBtn { display: none; }
   .menuBtn { display: flex; align-items: center; }
   .brandTagline { display: none; }
 }

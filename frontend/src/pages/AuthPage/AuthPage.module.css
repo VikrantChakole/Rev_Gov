@@ -150,6 +150,52 @@
 }
 .input::placeholder { color: var(--rg-text-body); }
 
+.select {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--rg-outline-variant);
+  background: var(--rg-surface-white);
+  font-size: 0.9375rem;
+  color: var(--rg-text-heading);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--rg-primary);
+  box-shadow: 0 0 0 3px rgba(0,53,95,0.08);
+}
+
+.fixedInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputFixed {
+  background: var(--rg-surface-container-low) !important;
+  color: var(--rg-text-heading) !important;
+  cursor: not-allowed;
+  padding-right: 3.5rem;
+  font-weight: 600;
+}
+
+.fixedBadge {
+  position: absolute;
+  right: 10px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
 /* Submit button */
 .submitBtn {
   width: 100%;

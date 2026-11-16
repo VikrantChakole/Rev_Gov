@@ -100,13 +100,21 @@ class AuditRepository:
         limit: int = 50,
         event_type: Optional[str] = None,
         application_id: Optional[str] = None,
+        state: Optional[str] = None,
     ) -> List[Dict]:
-        """Fetch recent audit entries for the dashboard and application review."""
+        """Fetch recent audit entries for the dashboard and application review, optionally scoped by State."""
         query = self.db.query(AuditLog)
         if event_type:
             query = query.filter(AuditLog.event_type == event_type)
         if application_id:
             query = query.filter(AuditLog.application_id == application_id)
+        if state and state.lower() != "all":
+            from app.models.db_models import Citizen, Application
+            matching_cits = [c[0] for c in self.db.query(Citizen.citizen_ref).filter(Citizen.state == state).all()]
+            matching_app_ids = [a[0] for a in self.db.query(Application.id).filter(Application.citizen_ref.in_(matching_cits)).all()]
+            query = query.filter(
+                (AuditLog.citizen_ref.in_(matching_cits)) | (AuditLog.application_id.in_(matching_app_ids))
+            )
         entries = query.order_by(AuditLog.created_at.desc()).limit(limit).all()
         return [
             {

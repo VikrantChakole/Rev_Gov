@@ -77,11 +77,17 @@ class PaymentService:
         txn_id: str,
         channel: str,
     ) -> Dict:
-        """Instant mock payment — used in demo/test mode."""
+        """Instant mock payment — marks application payment as paid."""
         payment = self.app_repo.create_payment(application_id, amount, txn_id)
-        self.app_repo.update_payment_status(txn_id, "SUCCESS", gateway_ref=f"MOCK-GW-{txn_id}")
-        self.app_repo.update_status(application_id, "PAYMENT_COMPLETED")
-        self.app_repo.update_progress(application_id, 85, "PAYMENT_COMPLETED")
+        self.app_repo.update_payment_status(txn_id, "PAID", gateway_ref=f"MOCK-GW-{txn_id}")
+        
+        # Keep application in PAYMENT_REQUIRED with payment_status=PAID so Desk Clerk can validate it
+        app = self.app_repo.get_by_id(application_id)
+        if app:
+            app.payment_status = "PAID"
+            self.db.commit()
+
+        self.app_repo.update_progress(application_id, 88, "PAYMENT_COMPLETED")
         self.app_repo.update_last_channel(application_id, channel)
 
         self.event_repo.create_event(
@@ -95,38 +101,34 @@ class PaymentService:
         # Broadcast SSE event
         try:
             from app.api.routes.stream import broadcast_status_change_sync, bus
-            app = self.app_repo.get_by_id(application_id)
             tracking_id = app.tracking_id or app.application_number if app else application_id
             broadcast_status_change_sync(
                 application_id=tracking_id,
                 tracking_id=tracking_id,
-                new_status="PAYMENT_COMPLETED",
+                new_status=app.status if app else "PAYMENT_REQUIRED",
                 actor="CITIZEN",
-                extra={"txn_id": txn_id, "amount": amount},
+                extra={"txn_id": txn_id, "amount": amount, "payment_status": "PAID"},
             )
             if citizen_ref:
                 bus.publish_sync(citizen_ref, {
                     "type": "status_change",
                     "tracking_id": tracking_id,
-                    "new_status": "PAYMENT_COMPLETED",
+                    "new_status": app.status if app else "PAYMENT_REQUIRED",
                     "actor": "CITIZEN",
                     "txn_id": txn_id,
+                    "payment_status": "PAID",
                 })
         except Exception as e:
             logger.warning(f"SSE broadcast failed in payment: {e}")
-
-        # Phase 9: Trigger certificate generation immediately after payment
-        cert_result = self._trigger_certificate_generation(application_id, citizen_ref)
 
         return {
             "status": "SUCCESS",
             "txn_id": txn_id,
             "amount": amount,
-            "certificate_ready": cert_result.get("success", False),
-            "certificate_number": cert_result.get("certificate_number"),
+            "payment_status": "PAID",
+            "certificate_ready": False,
             "message": (
-                f"\u2705 Payment successful! \u20b9{amount:.0f} \u00b7 TXN: {txn_id}" +
-                (f"\n\U0001f4dc Certificate ready! Number: {cert_result['certificate_number']}" if cert_result.get("success") else "")
+                f"✅ Payment successful! ₹{amount:.0f} · TXN: {txn_id}. Awaiting Desk Clerk payment validation."
             ),
         }
 

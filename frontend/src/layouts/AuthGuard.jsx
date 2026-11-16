@@ -22,7 +22,15 @@ export default function AuthGuard({ children, requiredRole }) {
     return <Navigate to="/admin/login" replace />
   }
 
-  if (requiredRole === ROLES.OFFICER && ![ROLES.ADMIN, ROLES.OFFICER].includes(user.role)) {
+  if (requiredRole === ROLES.OFFICER && ![ROLES.ADMIN, ROLES.OFFICER, ROLES.DISTRICT_OFFICER, ROLES.DESK_CLERK].includes(user.role)) {
+    return <Navigate to="/officer/login" replace />
+  }
+
+  if (requiredRole === ROLES.DESK_CLERK && ![ROLES.ADMIN, ROLES.DESK_CLERK].includes(user.role)) {
+    return <Navigate to="/officer/login" replace />
+  }
+
+  if (requiredRole === ROLES.DISTRICT_OFFICER && ![ROLES.ADMIN, ROLES.DISTRICT_OFFICER, ROLES.OFFICER].includes(user.role)) {
     return <Navigate to="/officer/login" replace />
   }
 

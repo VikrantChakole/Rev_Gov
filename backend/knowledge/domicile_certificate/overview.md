@@ -23,7 +23,7 @@ Domicile Certificates are **permanent** (valid for lifetime).
 The fee is ₹50 (fifty rupees).
 
 ## Residency Requirement
-The applicant must have been a resident of Maharashtra for at least **15 years**.
+The applicant must have been a resident of Maharashtra for at least **2 years**.
 
 ---
 
@@ -57,7 +57,7 @@ Proof that you have lived in Maharashtra for 15+ years:
 # Domicile Certificate — FAQ
 
 ## How many years do I need to have lived in Maharashtra?
-You must have lived in Maharashtra continuously for at least 15 years.
+You must have lived in Maharashtra continuously for at least 2 years.
 
 ## My birthplace is Maharashtra but I lived elsewhere. Can I still apply?
 Yes, if you are currently a permanent resident of Maharashtra.

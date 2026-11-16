@@ -420,6 +420,7 @@ export default function LandingPage() {
               <Link to="/status">Track Application</Link>
               <a href="/whatsapp">💬 WhatsApp</a>
               <a href="/ivr">📞 IVR</a>
+              <Link to="/officer/login">Service Officers</Link>
               <Link to="/admin/login">Admin</Link>
               <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">API Docs</a>
             </div>

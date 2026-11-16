@@ -448,7 +448,7 @@ def test_21_clarification_response_returns_application_to_review_queue(client: T
         f"/api/v1/applications/{app_record.id}/submit"
     )
     assert res_submit.status_code == 200
-    assert res_submit.json()["status"] == "SUBMITTED_FOR_VERIFICATION"
+    assert res_submit.json()["status"] in ("SUBMITTED", "SUBMITTED_FOR_VERIFICATION")
 
     # Verify visible in Admin queue
     res_queue = client.get(
@@ -478,7 +478,7 @@ def test_22_payment_completion_triggers_certificate_generation(client: TestClien
     )
     assert res_pay.status_code == 200
     assert res_pay.json()["status"] == "SUCCESS"
-    assert res_pay.json()["certificate_ready"] is True
+    assert res_pay.json()["payment_status"] == "PAID"
 
 
 def test_23_certificate_becomes_certificate_ready(client: TestClient, db: Session, admin_token: str):
@@ -498,7 +498,28 @@ def test_23_certificate_becomes_certificate_ready(client: TestClient, db: Sessio
         },
     )
     db.refresh(app_record)
-    assert app_record.status in ("CERTIFICATE_READY", "COMPLETED")
+    assert app_record.status == "PAYMENT_REQUIRED"
+    assert app_record.payment_status == "PAID"
+
+    # Desk clerk validates payment and forwards to District Officer
+    res_fwd = client.post(
+        f"/api/v1/applications/admin/{app_record.id}/decision",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"decision": "VALIDATE_PAYMENT_FORWARD_DISTRICT", "admin_notes": "Payment verified"},
+    )
+    assert res_fwd.status_code == 200
+    db.refresh(app_record)
+    assert app_record.status == "DISTRICT_OFFICER_APPROVAL"
+
+    # District Officer grants final approval generating certificate
+    res_do = client.post(
+        f"/api/v1/applications/admin/{app_record.id}/decision",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"decision": "APPROVE", "admin_notes": "District Officer Final Approval"},
+    )
+    assert res_do.status_code == 200
+    db.refresh(app_record)
+    assert app_record.status in ("CERTIFICATE_READY", "COMPLETED", "APPROVED")
     assert app_record.certificate is not None
     assert app_record.certificate.certificate_number.startswith("CERT-")
 

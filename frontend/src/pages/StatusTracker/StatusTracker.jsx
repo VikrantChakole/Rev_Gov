@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Search, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import useChatStore from '../../store/chatStore'
 import { applicationsApi } from '../../api/applications'
-import { t } from '../../i18n'
 import { STATUS_CONFIG, STORAGE_KEYS } from '../../utils/constants'
 import styles from './StatusTracker.module.css'
 
@@ -20,6 +20,7 @@ function saveRecent(appNum) {
 }
 
 export default function StatusTracker() {
+  const { t } = useTranslation()
   const { language } = useChatStore()
   const [searchParams] = useSearchParams()
   const [query, setQuery]   = useState(searchParams.get('app') || '')
@@ -129,22 +130,22 @@ export default function StatusTracker() {
                 </div>
               )}
               <div className={styles.metaItem}>
-                <span className={styles.metaKey}>Channel</span>
+                <span className={styles.metaKey}>{t('common.channel', 'Channel')}</span>
                 <span className={styles.metaVal}>{app.channel} · {app.language?.toUpperCase()}</span>
               </div>
               {app.sla_days && (
                 <div className={styles.metaItem}>
-                  <span className={styles.metaKey}>{t(language,'status.estCompletion')}</span>
-                  <span className={styles.metaVal}>{app.sla_days} {t(language,'common.days')}</span>
+                  <span className={styles.metaKey}>{t('status.estCompletion', 'Est. Completion')}</span>
+                  <span className={styles.metaVal}>{app.sla_days} {t('common.days', 'Days')}</span>
                 </div>
               )}
             </div>
 
             <div className={styles.actions}>
-              <Link to="/chat" className={styles.actionBtn}>{t(language,'status.chatHelp')}</Link>
+              <Link to="/chat" className={styles.actionBtn}>{t('status.chatHelp', 'Chat with Assistant')}</Link>
               {app.status === 'DRAFT' && (
                 <Link to={`/chat?service=${app.service_type}`} className={`${styles.actionBtn} ${styles.primaryBtn}`}>
-                  Continue Application
+                  {t('common.continueApplication', 'Continue Application')}
                 </Link>
               )}
             </div>

@@ -51,6 +51,9 @@ class DocumentRepository:
     def get(self, doc_id: str) -> Document | None:
         return self.db.query(Document).filter(Document.id == doc_id).first()
 
+    def get_by_id(self, doc_id: str) -> Document | None:
+        return self.get(doc_id)
+
     def get_by_application(self, application_id: str) -> list[Document]:
         return (
             self.db.query(Document)

@@ -1,16 +1,13 @@
 import { useState } from 'react'
 import { Outlet, Link, useNavigate } from 'react-router-dom'
-import useChatStore from '../store/chatStore'
+import { useTranslation } from 'react-i18next'
 import useAuthStore from '../store/authStore'
+import LanguageSwitcher from '../components/LanguageSwitcher/LanguageSwitcher'
 import styles from './PublicLayout.module.css'
 
-const LANGUAGE_NAMES_LOCAL = { en: 'English', hi: 'हिंदी', mr: 'मराठी' }
-const SUPPORTED_LANGS = ['en', 'hi', 'mr']
-
-
 export default function PublicLayout() {
+  const { t } = useTranslation()
   const navigate  = useNavigate()
-  const { language, setLanguage } = useChatStore()
   const { isCitizenAuthenticated, citizenUser } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -24,33 +21,23 @@ export default function PublicLayout() {
           </div>
           <div className={styles.brandText}>
             <span className={styles.brandName}>RevenueGov</span>
-            <span className={styles.brandTagline}>Government Services</span>
+            <span className={styles.brandTagline}>{t('header.brandTagline', 'Government Services')}</span>
           </div>
         </Link>
 
         {/* Desktop right section */}
         <div className={styles.navRight}>
-          {/* Language switcher */}
-          <div className={styles.langSwitcher}>
-            {['en', 'hi', 'mr'].map(lang => (
-              <button
-                key={lang}
-                className={`${styles.langBtn} ${language === lang ? styles.langActive : ''}`}
-                onClick={() => setLanguage(lang)}
-              >
-                {LANGUAGE_NAMES_LOCAL[lang]}
-              </button>
-            ))}
-          </div>
+          {/* Dynamic Language switcher */}
+          <LanguageSwitcher />
 
           {/* Auth buttons */}
           {isCitizenAuthenticated ? (
             <button
               className={styles.dashboardBtn}
-              onClick={() => navigate('/assistant')}
+              onClick={() => navigate('/dashboard')}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>dashboard</span>
-              My Dashboard
+              {t('navigation.myDashboard', 'My Dashboard')}
             </button>
           ) : (
             <>
@@ -58,14 +45,22 @@ export default function PublicLayout() {
                 className={styles.loginBtn}
                 onClick={() => navigate('/login')}
               >
-                Sign In
+                {t('authentication.signIn', 'Sign In')}
               </button>
               <button
                 className={styles.registerBtn}
                 onClick={() => navigate('/login?tab=register')}
               >
-                Register
+                {t('authentication.register', 'Register')}
               </button>
+              <Link to="/officer/login" className={styles.officerNavBtn}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>badge</span>
+                {t('navigation.officerPortal', 'Service Officers')}
+              </Link>
+              <Link to="/admin/login" className={styles.adminNavBtn}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>admin_panel_settings</span>
+                {t('navigation.adminPortal', 'Admin')}
+              </Link>
             </>
           )}
         </div>
@@ -74,7 +69,7 @@ export default function PublicLayout() {
         <button
           className={styles.menuBtn}
           onClick={() => setMenuOpen(v => !v)}
-          aria-label="Open menu"
+          aria-label={t('accessibility.openMenu', 'Open menu')}
         >
           <span className="material-symbols-outlined">{menuOpen ? 'close' : 'menu'}</span>
         </button>
@@ -86,22 +81,14 @@ export default function PublicLayout() {
           <div className={styles.mobileOverlay} onClick={() => setMenuOpen(false)} />
           <div className={styles.mobileMenu}>
             <div className={styles.mobileLangRow}>
-              {['en', 'hi', 'mr'].map(lang => (
-                <button
-                  key={lang}
-                  className={`${styles.langBtn} ${language === lang ? styles.langActive : ''}`}
-                  onClick={() => { setLanguage(lang); setMenuOpen(false) }}
-                >
-                  {LANGUAGE_NAMES_LOCAL[lang]}
-                </button>
-              ))}
+              <LanguageSwitcher onLanguageChange={() => setMenuOpen(false)} />
             </div>
             {isCitizenAuthenticated ? (
               <button
                 className={`${styles.registerBtn} ${styles.mobileFullBtn}`}
-                onClick={() => { navigate('/assistant'); setMenuOpen(false) }}
+                onClick={() => { navigate('/dashboard'); setMenuOpen(false) }}
               >
-                My Dashboard
+                {t('navigation.myDashboard', 'My Dashboard')}
               </button>
             ) : (
               <>
@@ -109,13 +96,25 @@ export default function PublicLayout() {
                   className={`${styles.loginBtn} ${styles.mobileFullBtn}`}
                   onClick={() => { navigate('/login'); setMenuOpen(false) }}
                 >
-                  Sign In
+                  {t('authentication.signInCitizen', 'Sign In (Citizen)')}
                 </button>
                 <button
                   className={`${styles.registerBtn} ${styles.mobileFullBtn}`}
                   onClick={() => { navigate('/login?tab=register'); setMenuOpen(false) }}
                 >
-                  Register
+                  {t('authentication.register', 'Register')}
+                </button>
+                <button
+                  className={`${styles.officerNavBtn} ${styles.mobileFullBtn}`}
+                  onClick={() => { navigate('/officer/login'); setMenuOpen(false) }}
+                >
+                  {t('authentication.officerLogin', 'Service Officers Login')}
+                </button>
+                <button
+                  className={`${styles.adminNavBtn} ${styles.mobileFullBtn}`}
+                  onClick={() => { navigate('/admin/login'); setMenuOpen(false) }}
+                >
+                  {t('navigation.adminPortal', 'Admin Portal')}
                 </button>
               </>
             )}

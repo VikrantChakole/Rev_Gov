@@ -16,6 +16,14 @@
   grid-template-columns: var(--sidebar-icon-w) 1fr var(--right-panel-w);
 }
 
+/* Full width main shell — used for user dashboard and form filling page */
+.shell.fullWidthMain {
+  grid-template-columns: var(--sidebar-w) 1fr;
+}
+.shell.collapsed.fullWidthMain {
+  grid-template-columns: var(--sidebar-icon-w) 1fr;
+}
+
 /* ══════════════════════════════════════════════════
    LEFT SIDEBAR
    ══════════════════════════════════════════════════ */
@@ -100,6 +108,10 @@
   font-size: 0.875rem;
   font-weight: 700;
   text-decoration: none;
+  border: none;
+  cursor: pointer;
+  width: calc(100% - 1.5rem);
+  text-align: left;
   transition: opacity 0.15s;
   white-space: nowrap;
 }
@@ -236,6 +248,44 @@
 }
 
 
+/* Desktop top bar */
+.desktopTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.75rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+.desktopTopBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.portalBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.desktopTopBarRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 /* Mobile top bar — hidden on desktop */
 .mobileTopBar { display: none; }
 .mobileBottomNav { display: none; }
@@ -345,6 +395,8 @@
 @media (max-width: 1280px) {
   .shell { grid-template-columns: var(--sidebar-w) 1fr var(--right-panel-sm-w); }
   .shell.collapsed { grid-template-columns: var(--sidebar-icon-w) 1fr var(--right-panel-sm-w); }
+  .shell.fullWidthMain { grid-template-columns: var(--sidebar-w) 1fr; }
+  .shell.collapsed.fullWidthMain { grid-template-columns: var(--sidebar-icon-w) 1fr; }
 }
 
 /* Medium laptop — hide right panel, show context toggle */
@@ -368,6 +420,7 @@
   }
   .sidebarOpen { left: 0; }
   .collapseBtn { display: none; }
+  .desktopTopBar { display: none; }
   .contentWrap { /* flex layout, mobile bar shown via display:flex on mobileTopBar */ }
   .mobileTopBar {
     display: flex;

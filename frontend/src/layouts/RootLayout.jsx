@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import {
   LayoutDashboard,
   FileText,
+  Users,
   FolderOpen,
   Shield,
   ScrollText,
@@ -11,6 +12,9 @@ import {
   LogOut,
   ExternalLink,
   Menu,
+  ScanLine,
+  MessageSquare,
+  PhoneCall,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useAuthStore from '../store/authStore'
@@ -19,13 +23,17 @@ import { logout } from '../api/auth'
 import styles from './RootLayout.module.css'
 
 const NAV_ITEMS = [
-  { to: '/admin/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/applications', icon: FileText,        label: 'Applications' },
-  { to: '/admin/documents',    icon: FolderOpen,      label: 'Documents' },
-  { to: '/admin/data-guard',   icon: Shield,          label: 'Data Guard' },
-  { to: '/admin/audit',        icon: ScrollText,      label: 'Audit Log' },
-  { to: '/admin/escalations',  icon: AlertTriangle,   label: 'Escalations' },
-  { to: '/admin/live-events',  icon: Radio,           label: 'Live Events' },
+  { to: '/admin/dashboard',      icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/applications',   icon: FileText,        label: 'Applications' },
+  { to: '/admin/ocr-config',     icon: ScanLine,        label: 'OCR Config' },
+  { to: '/admin/message-config', icon: MessageSquare,   label: 'Message & WhatsApp' },
+  { to: '/admin/ivr-config',     icon: PhoneCall,       label: 'IVR Config' },
+  { to: '/admin/users',          icon: Users,           label: 'Users' },
+  { to: '/admin/documents',      icon: FolderOpen,      label: 'Documents' },
+  { to: '/admin/data-guard',     icon: Shield,          label: 'Data Guard' },
+  { to: '/admin/audit',          icon: ScrollText,      label: 'Audit Log' },
+  { to: '/admin/escalations',    icon: AlertTriangle,   label: 'Escalations' },
+  { to: '/admin/live-events',    icon: Radio,           label: 'Live Events' },
 ]
 
 export default function RootLayout() {

@@ -49,7 +49,7 @@ def _verify_app_access(request: Request, app_citizen_ref: str):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     role = (payload.get("role") or "").upper()
-    if role in ("ADMIN", "OFFICER"):
+    if role in ("ADMIN", "OFFICER", "DESK_CLERK", "DISTRICT_OFFICER", "OPERATOR", "REVIEWER", "APPROVER"):
         return
 
     token_citizen_ref = payload.get("citizen_ref")
@@ -397,22 +397,31 @@ def submit_for_verification(application_id: str, request: Request, db: Session =
 
 class VerifyDocumentRequest(BaseModel):
     status: str = "VERIFIED"  # VERIFIED | REJECTED | REVIEW_REQUIRED
+    notes: Optional[str] = None
 
 
 @router.post("/{application_id}/documents/{doc_id}/verify")
+@router.post("/documents/{doc_id}/verify")
 def verify_document(
-    application_id: str,
     doc_id: str,
     body: VerifyDocumentRequest,
+    application_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """Admin endpoint to verify or reject a specific uploaded document."""
     doc_repo = DocumentRepository(db)
-    doc = doc_repo.get_by_id(doc_id)
+    doc = doc_repo.get(doc_id)
+    if not doc:
+        from app.models.db_models import Document
+        doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
     doc.verification_status = body.status
+    if body.notes:
+        resolutions = dict(doc.mismatch_resolutions or {})
+        resolutions["rejection_reason"] = body.notes.strip()
+        doc.mismatch_resolutions = resolutions
     db.commit()
 
     return {

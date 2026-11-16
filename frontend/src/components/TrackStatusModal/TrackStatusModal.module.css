@@ -1,0 +1,655 @@
+/* Track Status Modal Styling */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modalCard {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MODAL HEADER
+   ───────────────────────────────────────────────────────────── */
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.emblemIcon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.trackingIdLabel {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.trackingIdValue {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.copyBtn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.copyBtn:hover {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
+.serviceTitle {
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 2px 0 0 0;
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.closeBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   OVERVIEW BAR
+   ───────────────────────────────────────────────────────────── */
+.overviewBar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 12px 24px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .overviewBar {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}
+
+.overviewItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overviewIcon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.overviewLabel {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.overviewValue {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.currentStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.statusBadgeActive {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.statusBadgeCorrection {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.statusBadgeRejected {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.statusBadgeComplete {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MODAL BODY & TIMELINE NODES
+   ───────────────────────────────────────────────────────────── */
+.modalBody {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+/* Warning alert */
+.alertBannerWarning {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+}
+
+.alertIcon {
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.alertContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.alertTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.alertMessage {
+  font-size: 0.8rem;
+  color: #78350f;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.alertActionBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  background: #f59e0b;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.alertActionBtn:hover {
+  background: #d97706;
+}
+
+/* Pipeline Section */
+.pipelineSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pipelineSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pipelineTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.progressCounter {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* Connected Stage Nodes */
+.nodesContainer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.stageNodeCard {
+  display: flex;
+  position: relative;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.stageNodeCard:last-child {
+  padding-bottom: 0;
+}
+
+/* Vertical connector line between nodes */
+.connectorLine {
+  position: absolute;
+  top: 36px;
+  left: 17px;
+  width: 2px;
+  height: calc(100% - 32px);
+  background: #e2e8f0;
+  z-index: 1;
+}
+
+.connectorCompleted {
+  background: #16a34a;
+}
+
+/* Node circle */
+.nodeCircleWrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.nodeCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+/* Completed Node */
+.nodeCompleted .nodeCircle {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.35);
+}
+
+/* Current Node */
+.nodeCurrent .nodeCircle {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+.pulseRing {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  border: 2px solid #3b82f6;
+  animation: pulseAnimation 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseAnimation {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* Pending Node */
+.nodePending .nodeCircle {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 2px solid #e2e8f0;
+}
+
+/* Node Content */
+.nodeContent {
+  flex: 1;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+}
+
+.nodeCompleted .nodeContent {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.nodeCurrent .nodeContent {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.nodePending .nodeContent {
+  opacity: 0.7;
+}
+
+.nodeHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.nodeTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.nodeStatusPill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.nodeCompleted .nodeStatusPill {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.nodeCurrent .nodeStatusPill {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.nodePending .nodeStatusPill {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.nodeDescription {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Active Context Cards Inside Node */
+.activeNodeActionCard {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.paymentCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.feeInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.feeLabel {
+  font-size: 0.7rem;
+  color: #166534;
+  font-weight: 600;
+}
+
+.feeAmount {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #15803d;
+}
+
+.btnPayInNode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(21, 128, 61, 0.2);
+  transition: background 0.15s ease;
+}
+
+.btnPayInNode:hover {
+  background: #166534;
+}
+
+.activeNodeInfoCard {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #0369a1;
+  background: #f0f9ff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #e0f2fe;
+}
+
+.completedNodeBadge {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MODAL FOOTER
+   ───────────────────────────────────────────────────────────── */
+.modalFooter {
+  padding: 14px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .modalFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.footerHelp {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.footerHelp strong {
+  color: #0f172a;
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btnDownloadCert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.btnDownloadCert:hover {
+  background: #1e293b;
+}
+
+.btnPrimaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnPrimaryAction:hover {
+  background: #166534;
+}
+
+.btnCloseModal {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnCloseModal:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}

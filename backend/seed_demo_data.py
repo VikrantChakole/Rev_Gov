@@ -41,7 +41,9 @@ def seed():
         accounts = [
             {"username": "citizen", "password": "Citizen123!", "role": "CITIZEN", "name": "Rajesh Kumar Sharma", "phone": "+919876543210", "email": "rajesh.sharma@example.com"},
             {"username": "operator", "password": "Operator123!", "role": "OPERATOR", "name": "Operator Suresh V.", "phone": "+919811122233", "email": "operator@revgov.gov.in"},
+            {"username": "deskclerk", "password": "Clerk123!", "role": "DESK_CLERK", "name": "Clerk Ramesh Patil", "phone": "+919811122244", "email": "clerk@revgov.gov.in"},
             {"username": "officer", "password": "Officer123!", "role": "OFFICER", "name": "Officer Anjali Nair", "phone": "+919822233344", "email": "officer@revgov.gov.in"},
+            {"username": "districtofficer", "password": "Officer123!", "role": "DISTRICT_OFFICER", "name": "District Officer Kavita Desai", "phone": "+919822233355", "email": "districtofficer@revgov.gov.in"},
             {"username": "reviewer", "password": "Reviewer123!", "role": "REVIEWER", "name": "Reviewer Manoj Menon", "phone": "+919833344455", "email": "reviewer@revgov.gov.in"},
             {"username": "approver", "password": "Approver123!", "role": "APPROVER", "name": "District Collector R. Varma", "phone": "+919844455566", "email": "approver@revgov.gov.in"},
             {"username": "auditor", "password": "Auditor123!", "role": "AUDITOR", "name": "Audit Inspector K. Pillai", "phone": "+919855566677", "email": "auditor@revgov.gov.in"},

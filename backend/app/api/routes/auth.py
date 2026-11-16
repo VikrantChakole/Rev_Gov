@@ -33,12 +33,20 @@ class TokenResponse(BaseModel):
     token_type: str
     role: str
     username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    state: Optional[str] = "Maharashtra"
+    nationality: Optional[str] = "Indian"
     expires_in: int
 
 
 class UserInfo(BaseModel):
     username: str
     role: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    state: Optional[str] = "Maharashtra"
+    nationality: Optional[str] = "Indian"
 
 
 class CitizenRegisterRequest(BaseModel):
@@ -48,6 +56,8 @@ class CitizenRegisterRequest(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
+    state: Optional[str] = "Maharashtra"
+    nationality: Optional[str] = "Indian"
 
 
 class CitizenLoginRequest(BaseModel):
@@ -63,6 +73,8 @@ class CitizenAuthResponse(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    state: Optional[str] = "Maharashtra"
+    nationality: Optional[str] = "Indian"
     expires_in: int
 
 
@@ -72,6 +84,8 @@ class CitizenProfileResponse(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
+    state: Optional[str] = "Maharashtra"
+    nationality: Optional[str] = "Indian"
     preferred_language: str = "en"
 
 
@@ -80,6 +94,8 @@ class CitizenProfileUpdateRequest(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
+    state: Optional[str] = None
+    nationality: Optional[str] = None
 
 
 # ── Helpers ──
@@ -196,6 +212,12 @@ def require_operator(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def require_staff(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("ADMIN", "OFFICER", "DESK_CLERK", "DISTRICT_OFFICER", "REVIEWER", "APPROVER", "OPERATOR", "AUDITOR"):
+        raise HTTPException(status_code=403, detail="Staff role required")
+    return current_user
+
+
 # ── Endpoints ──
 
 @router.post("/login", response_model=TokenResponse)
@@ -219,7 +241,14 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = _create_token({"sub": user.username, "role": user.role, "citizen_ref": user.citizen_ref})
+    token = _create_token({
+        "sub": user.username,
+        "role": user.role,
+        "citizen_ref": user.citizen_ref,
+        "state": user.state or "Maharashtra",
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+    })
     expire_seconds = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
     logger.info(f"Login: {user.username} ({user.role})")
@@ -229,6 +258,10 @@ def login(
         token_type="bearer",
         role=user.role,
         username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        state=user.state or "Maharashtra",
+        nationality=user.nationality or "Indian",
         expires_in=expire_seconds,
     )
 
@@ -314,12 +347,20 @@ def register_citizen(
     citizen_repo = CitizenRepository(db)
     channel_repo = ChannelIdentityRepository(db)
 
+    # Extract first and last name
+    first_name = name_parts[0] if name_parts else None
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else None
+    user_state = (body.state or "Maharashtra").strip()
+    user_nat = (body.nationality or "Indian").strip()
+
     # Create Citizen record with permanent citizen_id
     citizen = citizen_repo.create(
         name=body.name or "Citizen User",
         phone=phone_val,
         email=email_val,
         address=body.address,
+        state=user_state,
+        nationality=user_nat,
     )
 
     # Create User authentication record
@@ -329,6 +370,11 @@ def register_citizen(
         hashed_password=hashed_pw,
         role="CITIZEN",
         citizen_ref=citizen.citizen_ref,
+        first_name=first_name,
+        last_name=last_name,
+        phone=phone_val,
+        state=user_state,
+        nationality=user_nat,
         is_active=True,
     )
     db.add(user)
@@ -375,6 +421,8 @@ def register_citizen(
         name=citizen.name,
         email=citizen.email,
         phone=citizen.phone,
+        state=getattr(citizen, "state", None) or user.state or "Maharashtra",
+        nationality=getattr(citizen, "nationality", None) or user.nationality or "Indian",
         expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
@@ -439,6 +487,8 @@ def login_citizen(
         name=citizen.name,
         email=citizen.email,
         phone=citizen.phone,
+        state=getattr(citizen, "state", None) or getattr(user, "state", None) or "Maharashtra",
+        nationality=getattr(citizen, "nationality", None) or getattr(user, "nationality", None) or "Indian",
         expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
@@ -454,6 +504,8 @@ def get_citizen_profile(
         phone=current_citizen.phone,
         email=current_citizen.email,
         address=current_citizen.address,
+        state=getattr(current_citizen, "state", None) or "Maharashtra",
+        nationality=getattr(current_citizen, "nationality", None) or "Indian",
         preferred_language=current_citizen.preferred_language or "en",
     )
 
@@ -473,13 +525,31 @@ def update_citizen_profile(
         phone=body.phone,
         email=body.email,
         address=body.address,
+        state=body.state,
+        nationality=body.nationality,
     )
+
+    # Synchronize with User record if exists
+    user = db.query(User).filter(User.citizen_ref == current_citizen.citizen_ref).first()
+    if user:
+        if body.state is not None: user.state = body.state
+        if body.nationality is not None: user.nationality = body.nationality
+        if body.phone is not None: user.phone = body.phone
+        if body.name:
+            parts = body.name.strip().split()
+            if parts:
+                user.first_name = parts[0]
+                user.last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+        db.commit()
+
     return CitizenProfileResponse(
         citizen_id=updated.citizen_ref,
         name=updated.name,
         phone=updated.phone,
         email=updated.email,
         address=updated.address,
+        state=getattr(updated, "state", None) or "Maharashtra",
+        nationality=getattr(updated, "nationality", None) or "Indian",
         preferred_language=updated.preferred_language or "en",
     )
 
@@ -487,7 +557,14 @@ def update_citizen_profile(
 @router.get("/me", response_model=UserInfo)
 def get_me(current_user: User = Depends(get_current_user)):
     """Return current user info from JWT."""
-    return UserInfo(username=current_user.username, role=current_user.role)
+    return UserInfo(
+        username=current_user.username,
+        role=current_user.role,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        state=current_user.state or "Maharashtra",
+        nationality=current_user.nationality or "Indian",
+    )
 
 
 @router.post("/logout")
@@ -497,4 +574,164 @@ def logout():
     This endpoint exists for audit trail purposes.
     """
     return {"message": "Logged out. Please delete your token client-side."}
+
+
+# ── ADMIN USER DIRECTORY ──
+
+class AdminUserItem(BaseModel):
+    id: str
+    username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    mobile_number: Optional[str] = None
+    state: Optional[str] = "Maharashtra"
+    nationality: Optional[str] = "Indian"
+    role: str
+    is_active: bool = True
+    created_at: Optional[str] = None
+
+
+class AdminUsersListResponse(BaseModel):
+    users: list[AdminUserItem]
+    total: int
+    page: int
+    limit: int
+
+
+@router.get("/admin/users", response_model=AdminUsersListResponse)
+def get_all_users_for_admin(
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    page: int = 1,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Admin endpoint to view all users available in the application with
+    id, first name, last name, mobile number, state, nationality, and role.
+    """
+    import re
+    query = db.query(User)
+
+    if role and role.upper() != "ALL":
+        query = query.filter(User.role == role.upper())
+
+    all_users = query.order_by(User.created_at.desc()).all()
+
+    items = []
+    for u in all_users:
+        c = u.citizen
+        f_name = u.first_name or (c.name.split()[0] if c and c.name else u.username)
+        l_name = u.last_name or (" ".join(c.name.split()[1:]) if c and c.name and len(c.name.split()) > 1 else "")
+        mob = u.phone or (c.phone if c else None) or (u.username if re.match(r"^\+?\d{10,13}$", u.username) else "Not provided")
+        user_state = u.state or (c.state if c else None) or "Maharashtra"
+        user_nat = u.nationality or (c.nationality if c else None) or "Indian"
+
+        if search:
+            s = search.lower().strip()
+            haystack = f"{u.id} {u.username} {f_name} {l_name} {mob} {user_state} {user_nat} {u.role}".lower()
+            if s not in haystack:
+                continue
+
+        items.append(AdminUserItem(
+            id=u.id,
+            username=u.username,
+            first_name=f_name,
+            last_name=l_name,
+            mobile_number=mob,
+            state=user_state,
+            nationality=user_nat,
+            role=u.role,
+            is_active=u.is_active,
+            created_at=u.created_at.isoformat() if u.created_at else None,
+        ))
+
+    total = len(items)
+    start_idx = (page - 1) * limit
+    paginated = items[start_idx : start_idx + limit]
+
+    return AdminUsersListResponse(
+        users=paginated,
+        total=total,
+        page=page,
+        limit=limit,
+    )
+
+
+class AdminCreateUserRequest(BaseModel):
+    role: str  # "DESK_CLERK" | "DISTRICT_OFFICER"
+    username: str
+    password: str
+    first_name: str
+    last_name: str
+    phone: Optional[str] = None
+    state: str = "Maharashtra"
+    nationality: str = "Indian"
+
+
+@router.post("/admin/users", response_model=AdminUserItem)
+def create_user_by_admin(
+    body: AdminCreateUserRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Onboard a new Service Officer ('Desk Clerk' or 'District Officer')
+    with their assigned State and Nationality='Indian'.
+    """
+    role = body.role.strip().upper()
+    allowed_roles = {"DESK_CLERK", "DISTRICT_OFFICER", "OFFICER"}
+    if role not in allowed_roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid role '{body.role}'. Allowed roles for onboarding: {', '.join(allowed_roles)}"
+        )
+
+    username = body.username.strip().lower()
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required.")
+
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+
+    existing = db.query(User).filter(User.username == username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Username '{username}' already exists. Please choose a different username.")
+
+    phone_clean = body.phone.strip() if body.phone else None
+    user_state = (body.state or "Maharashtra").strip()
+    user_nat = (body.nationality or "Indian").strip()
+
+    hashed_pw = _hash_password(body.password)
+    new_user = User(
+        username=username,
+        hashed_password=hashed_pw,
+        role=role,
+        first_name=body.first_name.strip(),
+        last_name=body.last_name.strip(),
+        phone=phone_clean,
+        state=user_state,
+        nationality=user_nat,
+        is_active=True,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    logger.info(f"Admin onboarded new user: {new_user.username} ({new_user.role}) for state: {new_user.state}")
+
+    return AdminUserItem(
+        id=new_user.id,
+        username=new_user.username,
+        first_name=new_user.first_name,
+        last_name=new_user.last_name,
+        mobile_number=new_user.phone or "Not provided",
+        state=new_user.state or "Maharashtra",
+        nationality=new_user.nationality or "Indian",
+        role=new_user.role,
+        is_active=new_user.is_active,
+        created_at=new_user.created_at.isoformat() if new_user.created_at else None,
+    )
+
 

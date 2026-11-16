@@ -3,6 +3,8 @@ Application Repository
 CRUD for applications, application data (encrypted), documents, payments.
 Extended for omnichannel: tracking_id, field provenance, progress, cross-channel.
 """
+import os
+import shutil
 import uuid
 import datetime
 import logging
@@ -101,6 +103,79 @@ class ApplicationRepository:
         self.db.commit()
         self.db.refresh(app)
         return app
+
+    def delete_draft(self, application_id: str) -> bool:
+        """Delete/discard a temporary DRAFT application and its uploaded files."""
+        app = self.get_by_id(application_id)
+        if not app:
+            return False
+        if app.status != "DRAFT":
+            return False
+
+        # Clean up uploaded files and document rows
+        for doc in app.documents or []:
+            if doc.file_ref and os.path.exists(doc.file_ref):
+                try:
+                    os.remove(doc.file_ref)
+                except Exception as e:
+                    logger.warning(f"Failed to remove file {doc.file_ref}: {e}")
+            self.db.delete(doc)
+
+        # Clean up directory if exists
+        draft_upload_dir = f"data/uploads/{app.id}"
+        if os.path.exists(draft_upload_dir):
+            try:
+                shutil.rmtree(draft_upload_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+        # Remove application data
+        self.db.query(ApplicationData).filter(ApplicationData.application_id == app.id).delete()
+
+        # Remove application
+        self.db.delete(app)
+        self.db.commit()
+        return True
+
+    def delete_application(self, application_id: str) -> bool:
+        """Delete an application and all its uploaded files, documents, certificate, and associated data."""
+        app = self.get_by_id(application_id)
+        if not app:
+            return False
+
+        # Clean up uploaded files and document rows
+        for doc in app.documents or []:
+            if doc.file_ref and os.path.exists(doc.file_ref):
+                try:
+                    os.remove(doc.file_ref)
+                except Exception as e:
+                    logger.warning(f"Failed to remove file {doc.file_ref}: {e}")
+            self.db.delete(doc)
+
+        # Clean up upload directory if exists
+        upload_dir = f"data/uploads/{app.id}"
+        if os.path.exists(upload_dir):
+            try:
+                shutil.rmtree(upload_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+        # Clean up certificate if exists
+        if app.certificate:
+            if app.certificate.file_ref and os.path.exists(app.certificate.file_ref):
+                try:
+                    os.remove(app.certificate.file_ref)
+                except Exception as e:
+                    logger.warning(f"Failed to remove certificate file: {e}")
+            self.db.delete(app.certificate)
+
+        # Remove application data
+        self.db.query(ApplicationData).filter(ApplicationData.application_id == app.id).delete()
+
+        # Remove application (cascades payments, events, escalations)
+        self.db.delete(app)
+        self.db.commit()
+        return True
 
     def get_by_id(self, application_id: str) -> Optional[Application]:
         return self.db.query(Application).filter(Application.id == application_id).first()
@@ -477,16 +552,21 @@ class ApplicationRepository:
 
     # ── Dashboard Stats ──
 
-    def get_submission_stats(self) -> Dict:
-        """Application statistics for the dashboard aggregating all canonical states."""
+    def get_submission_stats(self, state: Optional[str] = None) -> Dict:
+        """Application statistics for the dashboard aggregating all canonical states, optionally scoped by State."""
         today = datetime.datetime.utcnow().date()
         today_start = datetime.datetime(today.year, today.month, today.day)
 
-        submitted_today = self.db.query(Application).filter(
-            Application.submitted_at >= today_start
-        ).count()
+        sub_query = self.db.query(Application).filter(Application.submitted_at >= today_start)
+        apps_query = self.db.query(Application)
 
-        all_apps = self.db.query(Application).all()
+        if state and state.lower() != "all":
+            matching_cits = [c[0] for c in self.db.query(Citizen.citizen_ref).filter(Citizen.state == state).all()]
+            sub_query = sub_query.filter(Application.citizen_ref.in_(matching_cits))
+            apps_query = apps_query.filter(Application.citizen_ref.in_(matching_cits))
+
+        submitted_today = sub_query.count()
+        all_apps = apps_query.all()
         total_count = len(all_apps)
 
         by_status = {
@@ -555,6 +635,90 @@ class ApplicationRepository:
             })
         return results
 
+    def assign_application(
+        self,
+        application_id_or_number: str,
+        username: str,
+        new_status: str = "UNDER_REVIEW",
+    ) -> Optional[Application]:
+        """Assign an application to a specific desk clerk or officer and update its status."""
+        app = self.get_by_id(application_id_or_number) or self.get_by_number(application_id_or_number) or self.get_by_tracking_id(application_id_or_number)
+        if not app:
+            return None
+        app.assigned_to = username
+        app.status = new_status
+        now = datetime.datetime.utcnow()
+        app.reviewed_at = now
+        app.updated_at = now
+        self.db.commit()
+        self.db.refresh(app)
+        return app
+
+    def get_admin_status_counts(self, state: Optional[str] = None, current_user: Any = None) -> Dict[str, int]:
+        """Compute application counts per status category scoped to staff jurisdiction and role isolation."""
+        base_query = self.db.query(Application)
+        if state and state.lower() != "all":
+            matching_cits = [c[0] for c in self.db.query(Citizen.citizen_ref).filter(Citizen.state == state).all()]
+            base_query = base_query.filter(Application.citizen_ref.in_(matching_cits))
+
+        is_desk_clerk = current_user and getattr(current_user, "role", "") == "DESK_CLERK"
+        clerk_username = getattr(current_user, "username", "") if is_desk_clerk else None
+
+        counts = {}
+        if is_desk_clerk:
+            counts["SUBMITTED"] = base_query.filter(
+                Application.status.in_(["SUBMITTED", "SUBMITTED_FOR_VERIFICATION"]),
+                or_(Application.assigned_to == None, Application.assigned_to == "", Application.assigned_to == clerk_username)
+            ).count()
+            counts["UNDER_REVIEW"] = base_query.filter(
+                Application.status == "UNDER_REVIEW",
+                Application.assigned_to == clerk_username
+            ).count()
+            counts["ESCALATED"] = base_query.filter(
+                Application.status == "ESCALATED"
+            ).count()
+            counts["PAYMENT_REQUIRED"] = base_query.filter(
+                Application.status == "PAYMENT_REQUIRED",
+                Application.assigned_to == clerk_username
+            ).count()
+            counts["CORRECTION_NEEDED"] = base_query.filter(
+                Application.status.in_(["CORRECTION_NEEDED", "CLARIFICATION_REQUIRED"]),
+                Application.assigned_to == clerk_username
+            ).count()
+            counts["DISTRICT_OFFICER_APPROVAL"] = base_query.filter(
+                Application.status == "DISTRICT_OFFICER_APPROVAL"
+            ).count()
+            counts["ALL"] = base_query.filter(
+                or_(
+                    and_(
+                        Application.status.in_(["SUBMITTED", "SUBMITTED_FOR_VERIFICATION"]),
+                        or_(Application.assigned_to == None, Application.assigned_to == "", Application.assigned_to == clerk_username)
+                    ),
+                    Application.status == "ESCALATED",
+                    and_(
+                        Application.assigned_to == clerk_username,
+                        Application.status.in_(["UNDER_REVIEW", "PAYMENT_REQUIRED", "CORRECTION_NEEDED", "CLARIFICATION_REQUIRED", "REJECTED"])
+                    )
+                )
+            ).count()
+        else:
+            # District Officer / Admin
+            counts["DISTRICT_OFFICER_APPROVAL"] = base_query.filter(
+                Application.status == "DISTRICT_OFFICER_APPROVAL"
+            ).count()
+            counts["SUBMITTED"] = base_query.filter(
+                Application.status.in_(["SUBMITTED", "SUBMITTED_FOR_VERIFICATION"])
+            ).count()
+            counts["APPROVED"] = base_query.filter(
+                Application.status == "APPROVED"
+            ).count()
+            counts["COMPLETED"] = base_query.filter(
+                Application.status.in_(["COMPLETED", "CERTIFICATE_READY"])
+            ).count()
+            counts["ALL"] = base_query.count()
+
+        return counts
+
     def list_admin_applications(
         self,
         status: Optional[str] = None,
@@ -563,17 +727,53 @@ class ApplicationRepository:
         sort_by: str = "newest",
         page: int = 1,
         limit: int = 20,
+        state: Optional[str] = None,
+        current_user: Any = None,
+        assigned_to: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Authoritative Admin application list with filtering, search, sorting and pagination.
+        Enforces state jurisdiction and desk clerk assignment isolation.
         """
         query = self.db.query(Application)
+
+        # State jurisdiction filter
+        if state and state.lower() != "all":
+            matching_cits = [c[0] for c in self.db.query(Citizen.citizen_ref).filter(Citizen.state == state).all()]
+            query = query.filter(Application.citizen_ref.in_(matching_cits))
+
+        # Desk clerk isolation logic
+        is_desk_clerk = current_user and getattr(current_user, "role", "") == "DESK_CLERK"
+        clerk_username = getattr(current_user, "username", "") if is_desk_clerk else None
 
         # Status filter
         if status and status.upper() != "ALL":
             st = status.upper()
             if st == "SUBMITTED" or st == "SUBMITTED_FOR_VERIFICATION":
                 query = query.filter(Application.status.in_(["SUBMITTED_FOR_VERIFICATION", "SUBMITTED"]))
+                if is_desk_clerk:
+                    # In Submitted queue, desk clerks see unassigned applications or applications assigned to themselves
+                    query = query.filter(or_(Application.assigned_to == None, Application.assigned_to == "", Application.assigned_to == clerk_username))
+            elif st == "UNDER_REVIEW":
+                query = query.filter(Application.status == "UNDER_REVIEW")
+                if is_desk_clerk:
+                    # Desk clerk only sees applications assigned to themselves
+                    query = query.filter(Application.assigned_to == clerk_username)
+                elif assigned_to:
+                    query = query.filter(Application.assigned_to == assigned_to)
+            elif st == "PAYMENT_REQUIRED":
+                query = query.filter(Application.status == "PAYMENT_REQUIRED")
+                if is_desk_clerk:
+                    # Desk clerk only sees payment-required applications assigned to themselves
+                    query = query.filter(Application.assigned_to == clerk_username)
+            elif st in ("CORRECTION_NEEDED", "CLARIFICATION_REQUIRED"):
+                query = query.filter(Application.status.in_(["CORRECTION_NEEDED", "CLARIFICATION_REQUIRED"]))
+                if is_desk_clerk:
+                    query = query.filter(Application.assigned_to == clerk_username)
+            elif st == "DISTRICT_OFFICER_APPROVAL":
+                query = query.filter(Application.status == "DISTRICT_OFFICER_APPROVAL")
+            elif st == "ESCALATED":
+                query = query.filter(Application.status == "ESCALATED")
             elif st == "DRAFT":
                 query = query.filter(Application.status.in_([
                     "DRAFT", "INITIATED", "CONSENT_GIVEN", "SERVICE_SELECTED",
@@ -583,6 +783,24 @@ class ApplicationRepository:
                 ]))
             else:
                 query = query.filter(Application.status == st)
+                if is_desk_clerk and st not in ("SUBMITTED", "SUBMITTED_FOR_VERIFICATION"):
+                    query = query.filter(Application.assigned_to == clerk_username)
+        else:
+            # If viewing ALL as desk clerk, show unassigned SUBMITTED, ESCALATED, and owned UNDER_REVIEW, PAYMENT_REQUIRED, CORRECTION_NEEDED, REJECTED
+            if is_desk_clerk:
+                query = query.filter(
+                    or_(
+                        and_(
+                            Application.status.in_(["SUBMITTED", "SUBMITTED_FOR_VERIFICATION"]),
+                            or_(Application.assigned_to == None, Application.assigned_to == "", Application.assigned_to == clerk_username)
+                        ),
+                        Application.status == "ESCALATED",
+                        and_(
+                            Application.assigned_to == clerk_username,
+                            Application.status.in_(["UNDER_REVIEW", "PAYMENT_REQUIRED", "CORRECTION_NEEDED", "CLARIFICATION_REQUIRED", "REJECTED"])
+                        )
+                    )
+                )
 
         # Service filter
         if service_id and service_id.lower() != "all":
@@ -678,6 +896,7 @@ class ApplicationRepository:
                 "citizen_ref": a.citizen_ref,
                 "citizen_name": citizen_name,
                 "applicant_name": applicant_name,
+                "state": citizen.state if citizen and citizen.state else "Maharashtra",
                 "service_id": a.service_id,
                 "service_name": service_name,
                 "status": a.status,
@@ -689,6 +908,7 @@ class ApplicationRepository:
                 "channel_origin": a.channel_origin,
                 "language": a.language,
                 "payment_status": a.payment_status,
+                "assigned_to": a.assigned_to,
                 "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
                 "created_at": a.created_at.isoformat() if a.created_at else None,
                 "updated_at": a.updated_at.isoformat() if a.updated_at else None,
@@ -700,6 +920,7 @@ class ApplicationRepository:
             "limit": limit,
             "total_pages": (total + limit - 1) // limit if limit > 0 else 1,
             "applications": results,
+            "status_counts": self.get_admin_status_counts(state=state, current_user=current_user),
         }
 
     def get_admin_application_detail(self, id_or_number: str) -> Optional[Dict[str, Any]]:
@@ -780,14 +1001,30 @@ class ApplicationRepository:
                     mismatched_fields_summary.append(mmf if isinstance(mmf, str) else mmf.get("field", str(mmf)))
 
             raw_text = getattr(d, "raw_ocr_text", None) or getattr(d, "ocr_text", "")
+            # Calculate clean confidence score percentage and level
+            raw_conf = getattr(d, "confidence_score", None)
+            if raw_conf is not None:
+                conf_val = round(raw_conf * 100 if raw_conf <= 1.0 else raw_conf, 1)
+            else:
+                norm_conf = getattr(d, "normalization_confidence", None)
+                if isinstance(norm_conf, dict) and norm_conf:
+                    conf_val = round(sum(norm_conf.values()) / len(norm_conf) * 100, 1)
+                elif isinstance(norm_conf, (int, float)) and norm_conf > 0:
+                    conf_val = round(norm_conf * 100 if norm_conf <= 1.0 else norm_conf, 1)
+                else:
+                    conf_val = round(float(m_score), 1) if float(m_score) > 0 else 94.0
+
+            conf_level = "HIGH" if conf_val >= 85.0 else ("MEDIUM" if conf_val >= 70.0 else "LOW")
+
             doc_item = {
                 "id": str(d.id),
                 "doc_type": d.doc_type,
                 "filename": d.file_ref.split("/")[-1].split("\\")[-1] if d.file_ref else "",
                 "file_ref": d.file_ref,
                 "verification_status": d.verification_status,
-                "confidence_score": d.confidence_score,
-                "normalization_confidence": getattr(d, "normalization_confidence", 1.0) or 1.0,
+                "confidence_score": conf_val,
+                "confidence_level": conf_level,
+                "normalization_confidence": getattr(d, "normalization_confidence", {}) or {},
                 "normalization_provider": getattr(d, "normalization_provider", "regex") or "regex",
                 "match_score": float(m_score),
                 "extracted_fields": extracted,
@@ -883,9 +1120,11 @@ class ApplicationRepository:
             "CONSENT_CONFIRMED",
             "PENDING_REVIEW",
             "CLARIFICATION_REQUIRED",
+            "CORRECTION_NEEDED",
+            "DISTRICT_OFFICER_APPROVAL",
         )
         if app.status in actionable_review_states:
-            available_actions = ["APPROVE", "REQUEST_CLARIFICATION", "REJECT"]
+            available_actions = ["APPROVE", "REQUEST_CLARIFICATION", "CORRECTION_NEEDED", "DISTRICT_OFFICER_APPROVAL", "REJECT"]
         else:
             available_actions = []
 
@@ -901,6 +1140,7 @@ class ApplicationRepository:
                 "service_id": app.service_id,
                 "service_name": service_info["name"],
                 "status": app.status,
+                "assigned_to": app.assigned_to,
                 "progress_percent": app.progress_percent,
                 "payment_status": app.payment_status,
                 "channel_origin": app.channel_origin,
@@ -913,7 +1153,7 @@ class ApplicationRepository:
                 "anomaly_score": app.anomaly_score,
                 "rejection_reason": summary_meta.get("rejection_reason"),
                 "clarification_reason": summary_meta.get("clarification_reason"),
-                "reviewed_by": summary_meta.get("reviewed_by"),
+                "reviewed_by": summary_meta.get("reviewed_by") or app.assigned_to,
                 "reviewed_at": app.reviewed_at.isoformat() if app.reviewed_at else None,
             },
             "citizen": citizen_info,

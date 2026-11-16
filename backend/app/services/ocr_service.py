@@ -57,10 +57,21 @@ DOC_TYPE_KEYWORDS = {
 }
 
 
+# Global OCR configuration store
+GLOBAL_OCR_CONFIG = {
+    "provider": os.getenv("OCR_PROVIDER", "auto"),
+    "tesseract_cmd": os.getenv("TESSERACT_CMD") or os.getenv("TESSERACT_PATH") or r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+}
+
+
 class OCRService:
     """
     Extracts text and structured fields from document images and PDFs.
-    Uses system Tesseract OCR and deterministic regex extraction.
+    Supports multi-provider extraction:
+    - Local Tesseract OCR binary (when installed)
+    - Google Gemini 3.6 Flash / OpenRouter Multimodal Vision AI (for real document OCR)
+    - PyMuPDF direct text stream extraction (for digital PDFs)
+    - Deterministic heuristic regex field normalization
     """
 
     _cached_tesseract_cmd: Optional[str] = None
@@ -71,13 +82,18 @@ class OCRService:
         self.tesseract_path: Optional[str] = None
         self.is_tesseract_available: bool = False
         self.available_languages: List[str] = []
-        self._init_tesseract()
+        self.active_provider: str = GLOBAL_OCR_CONFIG.get("provider", "auto")
+        self._init_tesseract(GLOBAL_OCR_CONFIG.get("tesseract_cmd"))
 
-    def _init_tesseract(self):
-        """Auto-detect Tesseract executable and configure pytesseract."""
+    def _init_tesseract(self, custom_path: Optional[str] = None):
+        """Auto-detect Tesseract executable or test custom configured path."""
         from app.core.config import settings
 
-        candidates = [
+        candidates = []
+        if custom_path:
+            candidates.append(custom_path)
+
+        candidates.extend([
             getattr(settings, "TESSERACT_CMD", None),
             getattr(settings, "TESSERACT_PATH", None),
             os.getenv("TESSERACT_CMD"),
@@ -88,7 +104,7 @@ class OCRService:
             "/usr/bin/tesseract",
             "/usr/local/bin/tesseract",
             "/opt/homebrew/bin/tesseract",
-        ]
+        ])
 
         resolved_path = None
         for cand in candidates:
@@ -122,13 +138,26 @@ class OCRService:
         else:
             self.tesseract_cmd = None
             self.tesseract_path = None
+            self.is_tesseract_available = False
             logger.warning(
-                "[OCR_INIT] ⚠️ Tesseract binary not found in PATH or standard locations. "
-                "Set TESSERACT_CMD in .env if needed."
+                "[OCR_INIT] ℹ️ Tesseract binary not detected. Vision AI / PyMuPDF will handle document OCR."
             )
 
+    def update_config(self, provider: str, tesseract_cmd: Optional[str] = None) -> Dict[str, Any]:
+        """Update active provider and/or custom Tesseract executable path."""
+        if provider:
+            self.active_provider = provider.lower()
+            GLOBAL_OCR_CONFIG["provider"] = self.active_provider
+
+        if tesseract_cmd:
+            clean_path = tesseract_cmd.strip().replace('"', '')
+            GLOBAL_OCR_CONFIG["tesseract_cmd"] = clean_path
+            self._init_tesseract(clean_path)
+
+        return self.get_health_status()
+
     def get_health_status(self) -> Dict[str, Any]:
-        """Return health status for diagnostics and health check endpoint."""
+        """Return comprehensive health status for diagnostics and admin config endpoint."""
         version_str = "unknown"
         if self.is_tesseract_available:
             try:
@@ -137,12 +166,51 @@ class OCRService:
             except Exception:
                 version_str = "installed"
 
+        from app.core.config import settings
+        gemini_key = getattr(settings, "GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
+        openrouter_key = getattr(settings, "OPENROUTER_API_KEY", None) or os.getenv("OPENROUTER_API_KEY")
+        has_gemini = bool(gemini_key)
+        has_openrouter = bool(openrouter_key)
+        vision_available = has_gemini or has_openrouter
+
+        effective = "mock"
+        if self.active_provider == "tesseract" and self.is_tesseract_available:
+            effective = "tesseract"
+        elif self.active_provider == "vision_ai" and vision_available:
+            effective = "gemini_vision" if has_gemini else "openrouter_vision"
+        elif self.active_provider == "auto":
+            if self.is_tesseract_available:
+                effective = "tesseract"
+            elif vision_available:
+                effective = "gemini_vision" if has_gemini else "openrouter_vision"
+            else:
+                effective = "pymupdf_or_mock"
+
         return {
-            "available": self.is_tesseract_available,
-            "provider": "tesseract" if self.is_tesseract_available else "mock",
+            "available": self.is_tesseract_available or vision_available,
+            "active_provider": self.active_provider,
+            "effective_provider": effective,
+            "provider": effective,
             "executable": self.tesseract_cmd or "Not detected",
             "version": version_str,
             "languages": self.available_languages or ["eng"],
+            "tesseract": {
+                "available": self.is_tesseract_available,
+                "executable": self.tesseract_cmd or "Not detected",
+                "version": version_str,
+                "languages": self.available_languages or ["eng"],
+            },
+            "vision_ai": {
+                "available": vision_available,
+                "gemini_active": has_gemini,
+                "gemini_model": "models/gemini-3.6-flash",
+                "openrouter_active": has_openrouter,
+                "openrouter_model": "inclusionai/ling-3.0-flash-vl:free",
+            },
+            "pdf_engine": {
+                "available": True,
+                "engine": "PyMuPDF (fitz)",
+            },
         }
 
     def _resolve_ocr_language(self, requested_lang: str) -> str:
@@ -216,17 +284,24 @@ class OCRService:
             )
 
         resolved_lang = self._resolve_ocr_language(language)
-        raw_text = self._extract_text(file_path, resolved_lang)
+        raw_text, detected_provider = self._extract_text(file_path, resolved_lang)
         cleaned_text = self._clean_ocr_text(raw_text)
         detected_type = doc_type or self.detect_document_type(cleaned_text or raw_text)
 
         if raw_text and raw_text.strip():
             raw_fields = self._extract_fields(cleaned_text or raw_text, detected_type)
-            provider = "tesseract" if self.is_tesseract_available else "pymupdf_or_mock"
-            base_confidence = 0.90 if self.is_tesseract_available else 0.75
+            provider = detected_provider
+            if "vision" in provider:
+                base_confidence = 0.96
+            elif provider == "tesseract":
+                base_confidence = 0.90
+            elif provider == "pymupdf_text":
+                base_confidence = 0.88
+            else:
+                base_confidence = 0.60
         else:
             raw_fields = {}
-            provider = "mock"
+            provider = detected_provider
             base_confidence = 0.0
             logger.warning(f"[OCR_EMPTY] No text extracted from '{file_path}'")
 
@@ -295,6 +370,37 @@ class OCRService:
             f"NormProvider={norm_metadata.get('provider')}"
         )
         return result
+
+    def test_ocr(
+        self,
+        file_path: str,
+        doc_type: Optional[str] = None,
+        language: str = "eng+hin+mar",
+    ) -> Dict[str, Any]:
+        """Run diagnostic OCR test on a file for the Admin OCR Test Sandbox."""
+        import time
+        t0 = time.perf_counter()
+        result = self.run_ocr(file_path, doc_type=doc_type, language=language)
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+        return {
+            "status": "SUCCESS" if result.raw_text.strip() else "NO_TEXT_EXTRACTED",
+            "provider_used": result.provider,
+            "execution_time_ms": elapsed_ms,
+            "confidence": round(result.confidence * 100, 1),
+            "doc_type_detected": result.doc_type_detected,
+            "raw_text": result.raw_text,
+            "extracted_fields": result.extracted_fields,
+            "confidence_breakdown": {
+                k: round(v * 100, 1) if v <= 1.0 else v
+                for k, v in (result.confidence_breakdown or {}).items()
+            },
+            "message": (
+                f"Successfully extracted {len(result.extracted_fields)} field(s) via {result.provider} in {elapsed_ms}ms."
+                if result.raw_text.strip()
+                else "No text could be extracted from this document."
+            ),
+        }
 
     def _normalize_name(self, name_str: str) -> Optional[str]:
         """Normalize noisy OCR extracted name by removing OCR noise artifacts."""
@@ -420,36 +526,153 @@ class OCRService:
             return max(scores, key=scores.get)
         return "UNKNOWN"
 
-    def _extract_text(self, file_path: str, language: str) -> str:
-        """Extract raw text from PDF or Image file using Tesseract or PyMuPDF."""
+    def _extract_via_vision_ai(self, file_path: str) -> tuple:
+        """
+        Extracts document text using Vision AI (Gemini 3.6 Flash or OpenRouter Vision).
+        Works for both Image files and PDF files without requiring local Tesseract binaries.
+        """
+        from PIL import Image
+        import io
+
+        ext = file_path.lower().rsplit(".", 1)[-1]
+        pil_img = None
+
+        try:
+            if ext == "pdf":
+                try:
+                    import pymupdf
+                    doc = pymupdf.open(file_path)
+                    if len(doc) > 0:
+                        pix = doc[0].get_pixmap(dpi=200)
+                        pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
+                except Exception as pe:
+                    logger.warning(f"[VISION_PDF_RENDER_FAIL] {pe}")
+            else:
+                pil_img = Image.open(file_path)
+                if pil_img.mode in ("RGBA", "P"):
+                    pil_img = pil_img.convert("RGB")
+        except Exception as fe:
+            logger.warning(f"[VISION_IMAGE_OPEN_FAIL] {fe}")
+            return "", "error"
+
+        if not pil_img:
+            return "", "error"
+
+        # 1. Try Gemini 3.6 Flash Vision
+        from app.core.config import settings
+        gemini_key = getattr(settings, "GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
+        if gemini_key:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=gemini_key)
+                model = genai.GenerativeModel("models/gemini-3.6-flash")
+                prompt = (
+                    "You are a statutory government revenue document OCR scanner. "
+                    "Extract all visible text from this document verbatim line-by-line. "
+                    "Include all names, dates, numbers, Aadhaar/PAN/Voter IDs, addresses, and stamps. "
+                    "Do NOT summarize, comment, or format with markdown backticks. Return the verbatim text."
+                )
+                resp = model.generate_content([prompt, pil_img])
+                txt = resp.text.strip() if resp and resp.text else ""
+                if txt and len(txt) > 5:
+                    logger.info(f"[VISION_OCR_SUCCESS] Extracted {len(txt)} chars via Gemini 3.6 Flash")
+                    return txt, "gemini_vision"
+            except Exception as ge:
+                logger.warning(f"[GEMINI_VISION_FAIL] {ge}")
+
+        # 2. Try OpenRouter Vision (inclusionai/ling-3.0-flash-vl:free)
+        openrouter_key = getattr(settings, "OPENROUTER_API_KEY", None) or os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key:
+            try:
+                import httpx
+                import base64
+                buf = io.BytesIO()
+                pil_img.save(buf, format="JPEG", quality=85)
+                b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+                data_uri = f"data:image/jpeg;base64,{b64_str}"
+
+                payload = {
+                    "model": "inclusionai/ling-3.0-flash-vl:free",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Extract all text verbatim from this document. Return only the raw text."},
+                                {"type": "image_url", "image_url": {"url": data_uri}},
+                            ]
+                        }
+                    ]
+                }
+                r = httpx.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {openrouter_key}"},
+                    timeout=25.0,
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        txt = choices[0].get("message", {}).get("content", "").strip()
+                        if txt and len(txt) > 5:
+                            logger.info(f"[VISION_OCR_SUCCESS] Extracted {len(txt)} chars via OpenRouter Vision")
+                            return txt, "openrouter_vision"
+            except Exception as oe:
+                logger.warning(f"[OPENROUTER_VISION_FAIL] {oe}")
+
+        return "", "vision_unavailable"
+
+    def _extract_text(self, file_path: str, language: str) -> tuple:
+        """
+        Extract raw text from PDF or Image file using configured provider hierarchy.
+        Returns: (extracted_text: str, provider_name: str)
+        """
         ext = file_path.lower().rsplit(".", 1)[-1]
 
-        # 1. Handle PDF Documents
+        # 1. Handle PDF Documents with direct text first
         if ext == "pdf":
             pdf_text = self._extract_from_pdf(file_path, language)
-            if pdf_text and len(pdf_text.strip()) > 10:
-                return pdf_text.strip()
+            if pdf_text and len(pdf_text.strip()) > 30:
+                logger.info(f"[OCR_EXTRACT] Direct PDF text extracted: {len(pdf_text)} chars")
+                return pdf_text.strip(), "pymupdf_text"
 
-        # 2. Handle Image Files with Tesseract
-        if self.is_tesseract_available:
+        # 2. If provider is explicitly VISION_AI
+        if self.active_provider == "vision_ai":
+            vision_text, vision_prov = self._extract_via_vision_ai(file_path)
+            if vision_text and len(vision_text.strip()) > 5:
+                return vision_text.strip(), vision_prov
+
+        # 3. If Tesseract is available and configured
+        if self.active_provider in ("auto", "tesseract") and self.is_tesseract_available:
             try:
                 import pytesseract
                 from PIL import Image
 
-                img = Image.open(file_path)
-                # Convert RGBA/Palette to RGB
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
+                if ext == "pdf":
+                    rendered = self._extract_from_pdf(file_path, language)
+                    if rendered and len(rendered.strip()) > 10:
+                        return rendered.strip(), "tesseract"
+                else:
+                    img = Image.open(file_path)
+                    if img.mode in ("RGBA", "P"):
+                        img = img.convert("RGB")
 
-                custom_config = r"--oem 3 --psm 6"
-                text = pytesseract.image_to_string(img, lang=language, config=custom_config)
-                if text and text.strip():
-                    return text.strip()
+                    custom_config = r"--oem 3 --psm 6"
+                    text = pytesseract.image_to_string(img, lang=language, config=custom_config)
+                    if text and text.strip():
+                        return text.strip(), "tesseract"
             except Exception as e:
                 logger.warning(f"[OCR_TESSERACT_FAIL] Image OCR error: {e}")
 
-        # 3. Deterministic Mock Fallback for Development/Testing
-        return self._mock_extract(file_path)
+        # 4. If Auto mode and Tesseract was unavailable (or returned empty), use Vision AI!
+        if self.active_provider == "auto":
+            vision_text, vision_prov = self._extract_via_vision_ai(file_path)
+            if vision_text and len(vision_text.strip()) > 5:
+                return vision_text.strip(), vision_prov
+
+        # 5. Deterministic Mock Fallback for Development/Testing
+        logger.warning(f"[OCR_FALLBACK] Using mock fallback for {file_path}")
+        return self._mock_extract(file_path), "mock"
 
     def _extract_from_pdf(self, file_path: str, language: str) -> str:
         """Extract text from PDF pages, or render pages to images and OCR with Tesseract."""
@@ -568,11 +791,12 @@ class OCRService:
                 fields["applicant_name"] = cand.title() if cand.isascii() else cand
                 fields["full_name"] = fields["applicant_name"]
 
-        # Fallback name heuristic for Aadhaar/PAN: first non-header line with alphabetic text
-        if "applicant_name" not in fields:
+        # Fallback name heuristic for Aadhaar/PAN/Identity docs: first non-header line with alphabetic text
+        is_id_doc = doc_type in ("AADHAAR_CARD", "PAN_CARD", "VOTER_ID", "PASSPORT", "identity_proof", "age_proof") or not doc_type
+        if "applicant_name" not in fields and is_id_doc:
             for line in lines[:6]:
                 # Skip government headers
-                if any(h in line.lower() for h in ["government", "republic", "income tax", "uidai", "election", "authority", "enrollment", "india", "भारत"]):
+                if any(h in line.lower() for h in ["government", "republic", "income tax", "uidai", "election", "authority", "enrollment", "india", "भारत", "distribution", "electricity"]):
                     continue
                 # Line with 2-4 words of characters
                 words = line.split()
@@ -580,6 +804,17 @@ class OCRService:
                     fields["applicant_name"] = line.strip().title()
                     fields["full_name"] = fields["applicant_name"]
                     break
+
+        # ── 5b. Father's Name Extraction ──
+        father_match = re.search(
+            r"(?:father(?:'s)?(?:\s*name)?|पिता|वडिलांचे\s*नाव)[:\s]+([A-Za-z\s]{3,40}|[\u0900-\u097F\s]{3,40})",
+            raw_text,
+            re.IGNORECASE,
+        )
+        if father_match:
+            f_cand = father_match.group(1).strip()
+            if not any(ign in f_cand.lower() for ign in ["government", "republic", "income", "department", "india", "unique"]):
+                fields["father_name"] = f_cand.title() if f_cand.isascii() else f_cand
 
         # ── 6. Annual Income & Gross Income Extraction ──
         # Matches ₹ 3,00,000 / Rs. 300000 / Annual Income: 250000 / 3 Lakh

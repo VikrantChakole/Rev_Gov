@@ -24,6 +24,33 @@
   margin: 0;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ocrConfigBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #00355f;
+  border: 1px solid #002847;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ocrConfigBtn:hover {
+  background: #002440;
+  color: #ffffff;
+}
+
 .refreshBtn {
   display: flex;
   align-items: center;

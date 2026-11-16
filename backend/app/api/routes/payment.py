@@ -140,20 +140,70 @@ def payment_status(application_id: str, db: Session = Depends(get_db)):
     return result
 
 
-@router.post("/simulate-success/{application_id}")
-def simulate_payment_success(application_id: str, db: Session = Depends(get_db)):
-    """Dev tool: instantly mark payment as successful (demo/test mode only)."""
+class PaymentSimulateRequest(BaseModel):
+    payment_method: Optional[str] = "UPI"
+    payment_mode: Optional[str] = "GPay"
+    notes: Optional[str] = None
+
+
+@router.post("/simulate-success/{id_or_number}")
+def simulate_payment_success(
+    id_or_number: str,
+    body: Optional[PaymentSimulateRequest] = None,
+    db: Session = Depends(get_db)
+):
+    """Dev/Citizen tool: mark payment as successful with mock gateway and generate receipt."""
     app_repo = ApplicationRepository(db)
-    app = app_repo.get_by_id(application_id)
+    app = app_repo.get_by_id(id_or_number) or app_repo.get_by_number(id_or_number) or app_repo.get_by_tracking_id(id_or_number)
     if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
+        raise HTTPException(status_code=404, detail=f"Application '{id_or_number}' not found")
 
     svc = PaymentService(db)
+    import datetime
+    now_iso = datetime.datetime.utcnow().isoformat()
+    clean_id = (app.tracking_id or app.application_number or id_or_number).replace("-", "")[-6:].upper()
+    txn_id = f"MH-REV-TXN-{clean_id}-{int(datetime.datetime.utcnow().timestamp()) % 100000}"
+    receipt_no = f"MH-TREAS-{int(datetime.datetime.utcnow().timestamp()) % 1000000}"
+
+    method_str = (body.payment_method if body and body.payment_method else "UPI").upper()
+    if body and body.payment_mode:
+        method_str = f"{method_str} ({body.payment_mode})"
+
     result = svc._process_mock(
-        application_id=application_id,
-        citizen_ref=app.citizen_ref,
+        application_id=app.id,
+        citizen_ref=app.citizen_ref or "CITIZEN",
         amount=50.0,
-        txn_id=f"SIM-{application_id[:8].upper()}",
+        txn_id=txn_id,
         channel="WEB",
     )
-    return {**result, "simulated": True}
+
+    # Store receipt in validation_summary so it persists
+    val_summary = dict(app.validation_summary or {})
+    val_summary["payment_receipt"] = {
+        "receipt_number": receipt_no,
+        "txn_id": txn_id,
+        "amount": 50.0,
+        "payment_method": method_str,
+        "paid_at": now_iso,
+        "tracking_id": app.tracking_id or app.application_number,
+        "application_number": app.application_number,
+    }
+    app.validation_summary = val_summary
+    db.commit()
+
+    return {
+        **result,
+        "success": True,
+        "simulated": True,
+        "receipt_number": receipt_no,
+        "txn_id": txn_id,
+        "amount": 50.0,
+        "payment_method": method_str,
+        "payment_mode": body.payment_mode if body and body.payment_mode else method_str,
+        "paid_at": now_iso,
+        "application_id": app.id,
+        "application_number": app.application_number,
+        "tracking_id": app.tracking_id or app.application_number,
+        "service_id": app.service_id,
+        "citizen_ref": app.citizen_ref,
+    }

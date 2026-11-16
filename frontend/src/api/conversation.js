@@ -19,6 +19,7 @@ export const conversationApi = {
     form.append('channel', 'WEB')
     return client.post('/conversation/document-upload', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
     })
   },
 

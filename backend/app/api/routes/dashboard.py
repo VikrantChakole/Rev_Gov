@@ -19,9 +19,12 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 @router.get("/overview")
 @router.get("/stats")
-def get_dashboard_overview(db: Session = Depends(get_db)):
+def get_dashboard_overview(
+    state: str = None,
+    db: Session = Depends(get_db),
+):
     """
-    Main dashboard metrics:
+    Main dashboard metrics, optionally scoped by State:
     - Active sessions
     - Submissions today
     - Data Guard stats (blocks/allows)
@@ -32,13 +35,17 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     audit_repo = AuditRepository(db)
     session_repo = SessionRepository(db)
 
-    app_stats = app_repo.get_submission_stats()
+    app_stats = app_repo.get_submission_stats(state=state)
     dg_stats = audit_repo.get_data_guard_stats()
     active_sessions = session_repo.get_active_sessions_count()
 
     # Anomaly score distribution
-    from app.models.db_models import Application
+    from app.models.db_models import Application, Citizen
     all_apps = db.query(Application).all()
+    if state and state.lower() != "all":
+        matching_cits = [c[0] for c in db.query(Citizen.citizen_ref).filter(Citizen.state == state).all()]
+        all_apps = [a for a in all_apps if a.citizen_ref in matching_cits]
+
     anomaly_dist = {"low": 0, "medium": 0, "high": 0}
     from app.core.config import settings
     for a in all_apps:
@@ -93,11 +100,12 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
 def get_audit_log(
     limit: int = 50,
     event_type: str = None,
+    state: str = None,
     db: Session = Depends(get_db),
 ):
-    """Fetch audit log entries for the security dashboard."""
+    """Fetch audit log entries for the security dashboard, optionally filtered by State."""
     audit_repo = AuditRepository(db)
-    entries = audit_repo.get_recent_audit(limit=limit, event_type=event_type)
+    entries = audit_repo.get_recent_audit(limit=limit, event_type=event_type, state=state)
     return {"count": len(entries), "events": entries}
 
 
@@ -124,12 +132,20 @@ def get_data_guard_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/escalations")
-def get_escalations(db: Session = Depends(get_db)):
-    """Get open escalation tickets for officer view."""
-    from app.models.db_models import Escalation
-    escalations = db.query(Escalation).filter(
-        Escalation.status.in_(["OPEN", "ASSIGNED"])
-    ).order_by(Escalation.created_at.desc()).limit(20).all()
+def get_escalations(
+    state: str = None,
+    db: Session = Depends(get_db),
+):
+    """Get open escalation tickets, optionally scoped by State."""
+    from app.models.db_models import Escalation, Citizen
+    query = db.query(Escalation).filter(Escalation.status.in_(["OPEN", "ASSIGNED"]))
+    if state and state.lower() != "all":
+        matching_cits = [c[0] for c in db.query(Citizen.citizen_ref).filter(Citizen.state == state).all()]
+        from app.models.db_models import Application
+        matching_apps = [a[0] for a in db.query(Application.id).filter(Application.citizen_ref.in_(matching_cits)).all()]
+        query = query.filter(Escalation.application_id.in_(matching_apps))
+
+    escalations = query.order_by(Escalation.created_at.desc()).limit(20).all()
 
     return {
         "count": len(escalations),
@@ -138,7 +154,7 @@ def get_escalations(db: Session = Depends(get_db)):
                 "ticket_id":        e.ticket_id,
                 "application_id":   e.application_id,
                 "application_number": e.application.application_number if e.application else None,
-                "service_type":     e.application.service_type if e.application else None,
+                "service_type":     e.application.service_type if hasattr(e.application, "service_type") else (e.application.service_id if e.application else None),
                 "channel":          e.application.channel_origin if e.application else None,
                 "language":         e.application.language if e.application else None,
                 "anomaly_score":    e.application.anomaly_score if e.application else 0.0,

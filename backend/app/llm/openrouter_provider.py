@@ -351,7 +351,7 @@ class OpenRouterProvider(LLMProvider):
             {"role": "system", "content": OCR_NORMALIZATION_SYSTEM},
             {"role": "user", "content": ocr_prompt}
         ]
-        result_text = self._call(msgs, temperature=0.1, max_tokens=500)
+        result_text = self._call(msgs, temperature=0.1, max_tokens=500, timeout=12.0)
         try:
             parsed = _extract_json_from_llm(result_text)
             if not isinstance(parsed, dict) or "normalized_fields" not in parsed:

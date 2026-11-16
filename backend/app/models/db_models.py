@@ -42,6 +42,11 @@ class User(Base):
     hashed_password = Column(String(256), nullable=False)
     role = Column(String(32), nullable=False, default="CITIZEN")  # CITIZEN | OFFICER | ADMIN | AUDITOR
     citizen_ref = Column(String(64), ForeignKey("citizens.citizen_ref"), nullable=True, index=True)
+    first_name = Column(String(64), nullable=True)
+    last_name = Column(String(64), nullable=True)
+    phone = Column(String(32), nullable=True)
+    state = Column(String(64), nullable=True, default="Maharashtra")
+    nationality = Column(String(64), nullable=True, default="Indian")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
@@ -93,6 +98,8 @@ class Citizen(Base):
     phone = Column(String(32), nullable=True, index=True)
     email = Column(String(128), nullable=True, index=True)
     address = Column(Text, nullable=True)
+    state = Column(String(64), nullable=True, default="Maharashtra")
+    nationality = Column(String(64), nullable=True, default="Indian")
 
     preferred_language = Column(String(8), default="en")
     preferred_channel = Column(String(32), default="WEB")
@@ -168,6 +175,7 @@ class Application(Base):
     # Full lifecycle status
     status = Column(String(48), default="DRAFT")
     current_step = Column(String(64), default="INIT")     # Orchestrator step within status
+    assigned_to = Column(String(64), nullable=True, index=True)  # Username of assigned Desk Clerk / Officer
 
     # Channel tracking
     channel_origin = Column(String(32), nullable=False, default="WEB")  # WHATSAPP|IVR|WEB|MOBILE

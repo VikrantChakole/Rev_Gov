@@ -24,7 +24,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.routes import conversation, applications, dashboard, data_guard, auth
+from app.api.routes import conversation, applications, dashboard, data_guard, auth, automated_form, ocr_admin, config_admin
 from app.llm.exceptions import LLMUnavailableError
 from app.api.routes import whatsapp, ivr, tracking, documents, payment, stream, verify
 from app.core.security import SecurityMiddleware
@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
         "data/audio/whatsapp",     # WhatsApp TTS/voice
         "data/uploads",            # Document uploads
         "data/ocr_cache",          # OCR result cache
+        "data/config",             # Admin configuration JSON files
     ]:
         os.makedirs(path, exist_ok=True)
     # Initialize & verify OCR Service / Tesseract OCR
@@ -203,7 +204,10 @@ PREFIX = settings.API_V1_PREFIX
 app.include_router(auth.router, prefix=PREFIX)
 app.include_router(conversation.router, prefix=PREFIX)
 app.include_router(applications.router, prefix=PREFIX)
+app.include_router(automated_form.router, prefix=PREFIX)
 app.include_router(dashboard.router, prefix=PREFIX)
+app.include_router(ocr_admin.router, prefix=PREFIX)
+app.include_router(config_admin.router, prefix=PREFIX)
 app.include_router(data_guard.router, prefix=PREFIX)
 app.include_router(verify.router, prefix=PREFIX)
 

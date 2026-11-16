@@ -12,7 +12,7 @@ There is no minimum or maximum income limit to apply, but the use case may diffe
 
 ## Residency Requirement
 The applicant must be a **permanent resident of Maharashtra**.
-They should have been residing in the state for at least 15 years.
+They should have been residing in the state for at least 2 years.
 
 ## Who is NOT Eligible?
 - Non-residents of Maharashtra (they should apply in their home state)
